@@ -37,7 +37,11 @@ async def process_triage_turn(conversation_history: list, visual_context: str = 
     # Smart Mock Mode for testing split-screen branching without spending credits
     if os.getenv("AI_PROVIDER_MODE", "mock") == "mock":
         last_msg = conversation_history[-1]["content"].lower() if conversation_history else ""
-        if any(w in last_msg for w in ["chest", "বুকে", "slurred", "অবশ", "faint", "bleeding"]):
+        is_negated = any(neg in last_msg for neg in ["no chest", "নেই", "ব্যথা নেই", "কোনো সমস্যা নেই", "not "])
+        has_red_flags = any(w in last_msg for w in ["pressure", "চাপ", "slurred", "জড়িয়ে", "অবশ", "faint", "bleeding", "প্রচণ্ড"]) or (
+            any(w in last_msg for w in ["chest", "বুকে"]) and not is_negated
+        )
+        if has_red_flags:
             return TriageEngineResponse(
                 decision_flip_test={
                     "missing_critical_info": "None - Critical cardiac/neurological warning sign confirmed.",
