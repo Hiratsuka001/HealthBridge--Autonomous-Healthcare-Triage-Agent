@@ -1,0 +1,39 @@
+{
+  "dizziness_vertigo": {
+    "symptom_keywords": ["dizzy", "dizziness", "মাথা ঘুরছে", "চোখে অন্ধকার", "lightheaded", "faint"],
+    "critical_red_flags": [
+      "Chest pain, pressure, or tightness (বুকে ব্যথা বা চাপ)",
+      "Sudden slurred speech, facial droop, or one-sided weakness (কথা জড়িয়ে যাওয়া বা শরীরের এক পাশ অবশ লাগা)",
+      "Sudden severe headache or loss of consciousness"
+    ],
+    "routine_indicators": [
+      "Standing up too quickly, heat exposure, missed meals, mild dehydration without vomiting"
+    ],
+    "decision_flip_rule": "If cardiac or neurological red flags (chest pain, stroke signs, fainting) are unverified, DO NOT reassure. Prioritize verifying them immediately."
+  },
+  "burns_wounds": {
+    "symptom_keywords": ["burn", "cut", "bleeding", "wound", "পুড়ে গেছে", "কেটে গেছে", "রক্ত"],
+    "critical_red_flags": [
+      "Uncontrolled spurting blood or bleeding that does not stop after 5 minutes of firm pressure",
+      "Burns covering the face, airway, hands, or larger than the patient's palm",
+      "Charred/white painless skin indicating third-degree burn"
+    ],
+    "routine_indicators": [
+      "Superficial redness, minor localized scrape with controlled oozing"
+    ],
+    "decision_flip_rule": "Verify airway involvement (for facial burns) and bleeding control before routing to a local pharmacy."
+  },
+  "chest_breathing": {
+    "symptom_keywords": ["chest", "breathing", "breath", "বুকে ব্যথা", "শ্বাসকষ্ট"],
+    "critical_red_flags": [
+      "Pain radiating to left arm, jaw, or back with sweating",
+      "Inability to speak full sentences due to breathlessness",
+      "Bluish lips or face"
+    ],
+    "routine_indicators": [
+      "Mild cough with clear nasal congestion and normal breathing at rest"
+    ],
+    "decision_flip_rule": "Any acute chest pain or inability to speak full sentences immediately flips to Severe."
+  }
+}
+
