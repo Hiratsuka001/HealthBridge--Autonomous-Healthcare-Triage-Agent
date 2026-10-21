@@ -56,8 +56,3 @@ Edit `backend/.env`:
 
 ---
 
-### Hackathon Readiness
-Here is how to switch modes when the hackathon officially begins on **October 26**:
-- **Right Now (Testing & Recording Rehearsals):** Leave `AI_PROVIDER_MODE="mock"` in `backend/.env` so you can test the split-screen branching with zero latency and zero token usage.
-- **During the Hackathon (Oct 26 – Nov 4):** Copy `backend/.env.example` to `backend/.env`, set `AI_PROVIDER_MODE="meta"`, and paste your Meta API keys.
-
