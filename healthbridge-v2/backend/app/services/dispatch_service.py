@@ -8,6 +8,49 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def _fallback_facilities(severity: str) -> list:
+    if severity == "Severe":
+        return [
+            {
+                "name": "Dhaka Medical College Hospital (Emergency Care Unit)",
+                "type": "Specialized Trauma & Cardiac ER",
+                "distance": "2.4 km",
+                "eta": "11 mins",
+                "landmark": "Near Shaheed Minar / Bakshibazar Gate",
+                "phone": "+8801711000999"
+            },
+            {
+                "name": "NICVD (National Institute of Cardiovascular Diseases)",
+                "type": "Cardiac Emergency ER",
+                "distance": "3.1 km",
+                "eta": "14 mins",
+                "landmark": "Sher-e-Bangla Nagar, College Gate",
+                "phone": "+8801711000888"
+            }
+        ]
+    elif severity == "Moderate":
+        return [
+            {
+                "name": "Brac Healthcare Outpatient Clinic",
+                "type": "Primary Care Clinic",
+                "distance": "0.9 km",
+                "eta": "5 mins",
+                "landmark": "Mohakhali Wireless Gate",
+                "phone": "+8809678191919"
+            }
+        ]
+    else:
+        return [
+            {
+                "name": "Lazz Pharma (24/7 Registered Pharmacist)",
+                "type": "Local Pharmacy & ORS Station",
+                "distance": "0.3 km",
+                "eta": "2 mins",
+                "landmark": "Main Road Corner, beside City Bank ATM",
+                "phone": "+8801700000111"
+            }
+        ]
+
 async def find_nearby_facilities(severity: str, lat: float = 23.7771, lng: float = 90.3994) -> list:
     """
     Uses Google Maps Places API to match the patient's severity to nearby
@@ -18,68 +61,33 @@ async def find_nearby_facilities(severity: str, lat: float = 23.7771, lng: float
 
     # Realistic Dhaka facilities fallback for Mock Mode or missing API key
     if provider_mode == "mock" or not gmaps_key or gmaps_key == "your_google_maps_key":
-        if severity == "Severe":
-            return [
-                {
-                    "name": "Dhaka Medical College Hospital (Emergency Care Unit)",
-                    "type": "Specialized Trauma & Cardiac ER",
-                    "distance": "2.4 km",
-                    "eta": "11 mins",
-                    "landmark": "Near Shaheed Minar / Bakshibazar Gate",
-                    "phone": "+8801711000999"
-                },
-                {
-                    "name": "NICVD (National Institute of Cardiovascular Diseases)",
-                    "type": "Cardiac Emergency ER",
-                    "distance": "3.1 km",
-                    "eta": "14 mins",
-                    "landmark": "Sher-e-Bangla Nagar, College Gate",
-                    "phone": "+8801711000888"
-                }
-            ]
-        elif severity == "Moderate":
-            return [
-                {
-                    "name": "Brac Healthcare Outpatient Clinic",
-                    "type": "Primary Care Clinic",
-                    "distance": "0.9 km",
-                    "eta": "5 mins",
-                    "landmark": "Mohakhali Wireless Gate",
-                    "phone": "+8809678191919"
-                }
-            ]
-        else:
-            return [
-                {
-                    "name": "Lazz Pharma (24/7 Registered Pharmacist)",
-                    "type": "Local Pharmacy & ORS Station",
-                    "distance": "0.3 km",
-                    "eta": "2 mins",
-                    "landmark": "Main Road Corner, beside City Bank ATM",
-                    "phone": "+8801700000111"
-                }
-            ]
+        return _fallback_facilities(severity)
 
-    # Live Google Maps Places API query
+    # Live Google Maps Places API query with auto-fallback
     place_type = "hospital" if severity in ["Severe", "Moderate"] else "pharmacy"
     url = (
         f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
         f"?location={lat},{lng}&radius=3000&type={place_type}&key={gmaps_key}"
     )
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
-        data = resp.json()
-        results = []
-        for place in data.get("results", [])[:3]:
-            results.append({
-                "name": place.get("name"),
-                "type": place_type.capitalize(),
-                "distance": "Nearby",
-                "eta": "< 15 mins",
-                "landmark": place.get("vicinity", "Dhaka"),
-                "phone": "999"
-            })
-    return results
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            data = resp.json()
+            if resp.status_code != 200 or data.get("status") not in ["OK", "ZERO_RESULTS"]:
+                return _fallback_facilities(severity)
+            results = []
+            for place in data.get("results", [])[:3]:
+                results.append({
+                    "name": place.get("name"),
+                    "type": place_type.capitalize(),
+                    "distance": "Nearby",
+                    "eta": "< 15 mins",
+                    "landmark": place.get("vicinity", "Dhaka"),
+                    "phone": "999"
+                })
+            return results or _fallback_facilities(severity)
+    except Exception:
+        return _fallback_facilities(severity)
 
 def generate_soap_qr_packet(conversation_history: list, severity: str, decision_flip_info: str) -> dict:
     """

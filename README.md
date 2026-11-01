@@ -9,7 +9,7 @@ In Bangladesh and across developing countries, patients face **3.5+ hour average
 ## Our Solution
 **HealthBridge** is a mobile-first, bilingual (Bengali/English) multimodal triage and emergency response agent that takes patients from symptom onset to verified clinical handoff in under 60 seconds:
 
-1. **The "Missing-Question Engine" & Decision Flip Test (Muse Spark + WHO Protocol RAG):**
+1. **The Missing-Question Engine & Decision Flip Test (Muse Spark + WHO Protocol RAG):**
    - Conducts dynamic, one-question-at-a-time interviews in spoken or typed Bengali and English grounded in clinician-reviewed WHO pathways.
    - At each turn, selects the single next question most likely to change the safe clinical outcome.
    - Executes a **Decision Flip Test** before finalizing a Mild, Moderate, or Severe verdict:
@@ -25,7 +25,7 @@ In Bangladesh and across developing countries, patients face **3.5+ hour average
    - Uses strict JSON schema enforcement and Google Maps geolocation to route Mild/Moderate cases to nearby pharmacies or outpatient clinics.
    - For **Severe** cases, triggers an automated Bengali voice call to ambulance dispatchers, relaying the clinical triage summary, GPS coordinates, and nearby landmarks.
 
-4. **"Zero-Wait" ER Pre-Arrival Handoff (SOAP Note QR Code):**
+4. **Zero-Wait ER Pre-Arrival Handoff (SOAP Note QR Code):**
    - Compiles the Bengali triage interview and Decision Flip triggers into a standardized English Clinical SOAP Note encoded into a scannable QR code for instant intake.
 
 ---

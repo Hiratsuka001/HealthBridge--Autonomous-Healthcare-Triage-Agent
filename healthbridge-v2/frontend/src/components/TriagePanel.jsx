@@ -115,22 +115,22 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
       </div>
 
       {/* Quick Demo Presets */}
-      {presetScenario && messages.length === 0 && (
-        <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-3 flex flex-col gap-2">
-          <span className="text-xs text-slate-400 font-medium">Quick Demo Triggers:</span>
-          <div className="flex flex-wrap gap-2">
-            {presetScenario.steps.map((step, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(step.text)}
-                className="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-md transition"
-              >
-                {step.label}
-              </button>
-            ))}
+      {presetScenario && !triageState?.is_triage_complete && !loading && (() => {
+        const stepIdx = Math.floor(messages.length / 2);
+        const step = presetScenario.steps[stepIdx];
+        if (!step) return null;
+        return (
+          <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-3 flex flex-col gap-2">
+            <span className="text-xs text-slate-400 font-medium">Quick Demo Trigger (Step {stepIdx + 1} of {presetScenario.steps.length}):</span>
+            <button
+              onClick={() => handleSend(step.text)}
+              className="text-xs bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 px-3 py-1.5 rounded-md transition text-left"
+            >
+              {step.label}
+            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Decision Flip Test Live Inspector */}
       {triageState?.decision_flip_test && (

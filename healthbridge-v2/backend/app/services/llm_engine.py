@@ -31,10 +31,13 @@ def _fallback_triage_logic(conversation_history: list) -> TriageEngineResponse:
     Deterministic fallback pathway used when AI_PROVIDER_MODE='mock'
     or if the API returns a 401/402/429 quota exhaustion error.
     """
-    last_msg = conversation_history[-1]["content"].lower() if conversation_history else ""
-    is_negated = any(neg in last_msg for neg in ["no chest", "নেই", "ব্যথা নেই", "কোনো সমস্যা নেই", "not "])
-    has_red_flags = any(w in last_msg for w in ["pressure", "চাপ", "slurred", "জড়িয়ে", "অবশ", "faint", "bleeding", "প্রচণ্ড", "কষ্ট"]) or (
-        any(w in last_msg for w in ["chest", "বুকে"]) and not is_negated
+    user_msgs = [m.get("content", "").lower() for m in conversation_history if m.get("role") == "user"]
+    last_user_msg = user_msgs[-1] if user_msgs else ""
+    all_user_text = " ".join(user_msgs)
+
+    is_negated = any(neg in last_user_msg for neg in ["no chest", "নেই", "ব্যথা নেই", "কোনো সমস্যা নেই", "not "])
+    has_red_flags = any(w in all_user_text for w in ["pressure", "চাপ", "slurred", "জড়িয়ে", "অবশ", "faint", "bleeding", "প্রচণ্ড", "কষ্ট"]) or (
+        any(w in all_user_text for w in ["chest", "বুকে"]) and not is_negated
     )
     if has_red_flags:
         return TriageEngineResponse(
@@ -59,14 +62,20 @@ def _fallback_triage_logic(conversation_history: list) -> TriageEngineResponse:
             is_triage_complete=True
         )
     else:
+        is_trauma = any(w in all_user_text for w in ["burn", "wound", "পুড়ে", "ক্ষত", "কাটা"])
+        question = (
+            "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)"
+            if is_trauma else
+            "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)"
+        )
         return TriageEngineResponse(
             decision_flip_test={
-                "missing_critical_info": "Presence of chest pain, shortness of breath, or one-sided weakness/slurred speech",
+                "missing_critical_info": "Presence of chest pain, shortness of breath, active bleeding, or slurred speech",
                 "has_verified_info": False,
                 "should_escalate": True
             },
             current_severity="Moderate",
-            next_question="আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)",
+            next_question=question,
             is_triage_complete=False
         )
 
