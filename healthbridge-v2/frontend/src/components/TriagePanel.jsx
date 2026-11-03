@@ -24,7 +24,224 @@ import {
   Navigation,
   Pill,
   ShieldCheck,
+  ChevronRight,
+  StopCircle,
 } from "lucide-react";
+
+const CHIEF_COMPLAINTS = [
+  {
+    icon: "🫀",
+    titleBn: "বুকে প্রচণ্ড চাপ বা ব্যথা",
+    titleEn: "Crushing Chest Pain / Pressure",
+    subtitleBn: "বাম হাত, চোয়াল বা পিঠে ছড়ানো ব্যথা",
+    subtitleEn: "Radiating to left arm, neck, or jaw",
+    textBn: "আমার হঠাৎ খুব মাথা ঘুরছে এবং বুকে প্রচণ্ড চাপ লাগছে",
+    textEn: "I suddenly feel very dizzy with severe chest pressure",
+  },
+  {
+    icon: "🧠",
+    titleBn: "মাথা ঘোরা ও কথা জড়িয়ে যাওয়া",
+    titleEn: "Dizziness & Slurred Speech",
+    subtitleBn: "মুখ বা হাতের এক পাশ অবশ লাগা (স্ট্রোক লক্ষণ)",
+    subtitleEn: "Unilateral weakness or numbness (FAST)",
+    textBn: "আমার মাথা খুব ঘুরছে এবং কথা জড়িয়ে যাচ্ছে, এক হাত দুর্বল লাগছে",
+    textEn: "Sudden severe dizziness, slurred speech, and arm weakness",
+  },
+  {
+    icon: "🫁",
+    titleBn: "তীব্র শ্বাসকষ্ট ও বুক ধড়ফড়",
+    titleEn: "Severe Breathlessness & Gasping",
+    subtitleBn: "শ্বাস নিতে কষ্ট ও প্রচণ্ড অস্বস্তি",
+    subtitleEn: "Difficulty breathing, tachycardia, hypoxia",
+    textBn: "আমার প্রচণ্ড শ্বাসকষ্ট হচ্ছে এবং বুকে চাপ অনুভূত হচ্ছে",
+    textEn: "Severe shortness of breath with chest tightness",
+  },
+  {
+    icon: "🩸",
+    titleBn: "রক্তপাত, গভীর ক্ষত বা পোড়া",
+    titleEn: "Bleeding Wound, Burn, or Trauma",
+    subtitleBn: "অবিরাম রক্তপাত বা শরীরের আঘাত",
+    subtitleEn: "Active bleeding, burns, or laceration",
+    textBn: "আমার শরীরে গভীর ক্ষত হয়ে অবিরাম রক্তক্ষরণ হচ্ছে",
+    textEn: "Deep open injury with continuous active bleeding",
+  },
+];
+
+function getGuidedOptions(lastAssistantMsg, isBn) {
+  if (!lastAssistantMsg) return [];
+  const text = lastAssistantMsg.toLowerCase();
+
+  // Cardiac / Chest / Radiation
+  if (
+    text.includes("বুক") ||
+    text.includes("chest") ||
+    text.includes("হার্ট") ||
+    text.includes("হাত") ||
+    text.includes("arm") ||
+    text.includes("pressure")
+  ) {
+    return [
+      {
+        text: isBn
+          ? "হ্যাঁ, বাম হাত ও চোয়ালে ছড়াচ্ছে এবং ঠান্ডা ঘাম হচ্ছে"
+          : "Yes, radiating to left arm/jaw with cold sweat",
+        label: isBn ? "হ্যাঁ, বাম হাত/চোয়ালে ছড়াচ্ছে" : "Yes, radiating to arm/jaw",
+        badge: isBn ? "উচ্চ ঝুঁকি" : "High Risk",
+        badgeColor: "bg-red-100 text-red-800 border-red-200",
+      },
+      {
+        text: isBn
+          ? "না, কেবল বুকেই সীমাবদ্ধ, কোথাও ছড়াচ্ছে না"
+          : "No, localized to chest only, not radiating",
+        label: isBn ? "না, কেবল বুকেই সীমাবদ্ধ" : "No, chest only",
+        badge: isBn ? "সীমিত" : "Localized",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      {
+        text: isBn
+          ? "হাঁটাহাঁটি বা পরিশ্রম করলে বাড়ে, বিশ্রাম নিলে একটু কমে"
+          : "Worse upon exertion, improves slightly at rest",
+        label: isBn ? "পরিশ্রমে বাড়ে, বিশ্রামে কমে" : "Worse on exertion",
+        badge: isBn ? "অ্যাঞ্জাইনা লক্ষণ" : "Exertional",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      {
+        text: isBn
+          ? "না, এমন কোনো অতিরিক্ত লক্ষণ বা ছড়ানো নেই"
+          : "No other red flags or radiating pain",
+        label: isBn ? "না, অন্য কোনো সমস্যা নেই" : "No other red flags",
+        badge: isBn ? "স্বাভাবিক" : "Negative",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      },
+    ];
+  }
+
+  // Bleeding / Wound / Trauma
+  if (
+    text.includes("রক্ত") ||
+    text.includes("ক্ষত") ||
+    text.includes("bleed") ||
+    text.includes("wound") ||
+    text.includes("কাটা") ||
+    text.includes("পোড়া")
+  ) {
+    return [
+      {
+        text: isBn
+          ? "হ্যাঁ, ক্ষত থেকে অবিরাম তীব্র রক্তপাত হচ্ছে"
+          : "Yes, active and continuous heavy bleeding",
+        label: isBn ? "হ্যাঁ, অবিরাম রক্ত পড়ছে" : "Yes, continuous bleeding",
+        badge: isBn ? "জরুরি" : "Urgent",
+        badgeColor: "bg-red-100 text-red-800 border-red-200",
+      },
+      {
+        text: isBn
+          ? "কাপড় দিয়ে চাপ দিয়ে ধরে রাখলে রক্ত কিছুটা নিয়ন্ত্রণে আসে"
+          : "Bleeding slows when pressure is applied with cloth",
+        label: isBn ? "চাপে রক্তপাত কমে" : "Slows with pressure",
+        badge: isBn ? "নিয়ন্ত্রিত" : "Controlled",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      {
+        text: isBn
+          ? "চামড়ার নিচে গভীর স্তর বা মাংস দেখা যাচ্ছে"
+          : "Deep tissue or underlying structure visible",
+        label: isBn ? "গভীর উন্মুক্ত ক্ষত" : "Deep open wound",
+        badge: isBn ? "সিভিয়ার" : "Severe",
+        badgeColor: "bg-red-100 text-red-800 border-red-200",
+      },
+      {
+        text: isBn
+          ? "না, কেবল ওপরের চামড়া সামান্য ছড়ে গেছে"
+          : "Minor superficial scratch / minimal scrape",
+        label: isBn ? "সামান্য ছড়ে যাওয়া" : "Minor scrape only",
+        badge: isBn ? "মৃদু" : "Mild",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      },
+    ];
+  }
+
+  // Neuro / Dizziness / Speech / FAST
+  if (
+    text.includes("মাথা") ||
+    text.includes("dizz") ||
+    text.includes("কথা") ||
+    text.includes("speech") ||
+    text.includes("অবশ") ||
+    text.includes("stroke")
+  ) {
+    return [
+      {
+        text: isBn
+          ? "হ্যাঁ, কথা জড়িয়ে যাচ্ছে এবং হাত বা মুখের এক পাশ অবশ লাগছে"
+          : "Yes, slurred speech and numbness in one side",
+        label: isBn ? "কথা জড়িয়ে যাওয়া ও অবশ লাগা" : "Slurred speech & numbness",
+        badge: isBn ? "স্ট্রোক সতর্কবার্তা" : "Stroke Alert",
+        badgeColor: "bg-red-100 text-red-800 border-red-200",
+      },
+      {
+        text: isBn
+          ? "না, কথা স্পষ্ট আছে, কেবল হঠাৎ মাথা ঘুরছে"
+          : "Speech is normal, just feeling acutely dizzy",
+        label: isBn ? "কথা স্বাভাবিক, শুধু মাথা ঘুরছে" : "Speech normal, dizzy only",
+        badge: isBn ? "পর্যবেক্ষণ" : "Moderate",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      {
+        text: isBn
+          ? "দাঁড়াতে গেলে চোখে অন্ধকার লাগে ও ভারসাম্য রাখা যায় না"
+          : "Postural dizziness, feeling faint when standing",
+        label: isBn ? "দাঁড়ালে চোখে অন্ধকার লাগা" : "Faint when standing",
+        badge: isBn ? "হাইপোটেনশন" : "Postural",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+      },
+      {
+        text: isBn
+          ? "না, কথা বলা বা চলাফেরায় কোনো সমস্যা নেই"
+          : "No difficulty with speech or movement",
+        label: isBn ? "না, চলাফেরা ও কথা স্বাভাবিক" : "Normal movement & speech",
+        badge: isBn ? "নিরাপদ" : "Clear",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      },
+    ];
+  }
+
+  // Generic clinical questions
+  return [
+    {
+      text: isBn
+        ? "হ্যাঁ, উপসর্গটি তীব্র ও ক্রমেই বাড়ছে"
+        : "Yes, symptom is severe and worsening",
+      label: isBn ? "হ্যাঁ, উপসর্গটি তীব্র" : "Yes, symptom is severe",
+      badge: isBn ? "পজিটিভ" : "Yes",
+      badgeColor: "bg-red-100 text-red-800 border-red-200",
+    },
+    {
+      text: isBn
+        ? "না, এমন কোনো উপসর্গ বা সমস্যা নেই"
+        : "No, denies having this symptom",
+      label: isBn ? "না, এমন কোনো সমস্যা নেই" : "No, symptom absent",
+      badge: isBn ? "নেগেটিভ" : "No",
+      badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    },
+    {
+      text: isBn
+        ? "মাঝে মাঝে হালকাভাবে হয়, তীব্র নয়"
+        : "Occurs intermittently, mild in intensity",
+      label: isBn ? "মাঝে মাঝে হালকা অনুভূত হয়" : "Mild / intermittent",
+      badge: isBn ? "মৃদু" : "Mild",
+      badgeColor: "bg-amber-100 text-amber-800 border-amber-200",
+    },
+    {
+      text: isBn
+        ? "সঠিকভাবে নিশ্চিত নই বা বলতে পারছি না"
+        : "Unsure or cannot reliably verify",
+      label: isBn ? "নিশ্চিত নই / বলতে পারছি না" : "Unsure / Cannot tell",
+      badge: isBn ? "অনিশ্চিত" : "Unclear",
+      badgeColor: "bg-slate-100 text-slate-700 border-slate-200",
+    },
+  ];
+}
 
 export default function TriagePanel({
   title = null,
@@ -45,6 +262,7 @@ export default function TriagePanel({
   const [voiceLangOverride, setVoiceLangOverride] = useState(null);
   const voiceLang = voiceLangOverride ?? (lang === "bn" ? "bn-BD" : "en-US");
   const [coords, setCoords] = useState(null);
+  const [recognitionInstance, setRecognitionInstance] = useState(null);
 
   // Active intake widget tab: 'bodymap' | 'vitals' | 'fast' | 'map' | 'meds'
   const [activeWidgetTab, setActiveWidgetTab] = useState("bodymap");
@@ -64,6 +282,13 @@ export default function TriagePanel({
   }, []);
 
   const handleReset = () => {
+    if (recognitionInstance) {
+      try {
+        recognitionInstance.stop();
+      } catch {
+        // ignore
+      }
+    }
     setMessages([]);
     setInput("");
     setLoading(false);
@@ -73,6 +298,7 @@ export default function TriagePanel({
     setDispatchData(null);
     setScannedMedications([]);
     setActiveWidgetTab("bodymap");
+    setIsListening(false);
   };
 
   const handleSend = async (customText = null, _customSeverityTrigger = false) => {
@@ -178,16 +404,29 @@ export default function TriagePanel({
   };
 
   const handleVoiceInput = () => {
-    if (isListening) return;
+    if (isListening) {
+      if (recognitionInstance) {
+        try {
+          recognitionInstance.stop();
+        } catch {
+          // ignore
+        }
+      }
+      setIsListening(false);
+      return;
+    }
+
     setIsListening(true);
-    startVoiceRecognition(
+    const rec = startVoiceRecognition(
       voiceLang,
       (transcript) => {
+        setIsListening(false);
         setInput(transcript);
         handleSend(transcript);
       },
       () => setIsListening(false)
     );
+    setRecognitionInstance(rec);
   };
 
   const handleImageUpload = async (e) => {
@@ -214,10 +453,59 @@ export default function TriagePanel({
   const currentEsi = triageState?.esi_level ?? currentScoring?.esi?.level ?? 3;
   const currentNews = triageState?.news2_score ?? currentScoring?.news?.score ?? 0;
 
+  // Determine current step in clinical progression
+  const currentStep = triageState?.is_triage_complete ? 3 : messages.length > 0 ? 2 : 1;
+
+  // Find last assistant question for Ada-style guided quick options
+  const lastAssistantMessage = messages
+    .slice()
+    .reverse()
+    .find((m) => m.role === "assistant");
+  const guidedOptions =
+    !triageState?.is_triage_complete && lastAssistantMessage
+      ? getGuidedOptions(lastAssistantMessage.content, isBn)
+      : [];
+
   return (
     <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 flex flex-col gap-5 shadow-xs">
+      {/* 3-Step Clinical Progression Stepper */}
+      <div className="flex items-center justify-between bg-slate-50 border border-slate-200/90 rounded-xl p-2.5 px-4 text-xs font-semibold">
+        <div className={`flex items-center gap-2 ${currentStep >= 1 ? "text-teal-800 font-bold" : "text-slate-400"}`}>
+          <span
+            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              currentStep >= 1 ? "bg-teal-600 text-white" : "bg-slate-200 text-slate-600"
+            }`}
+          >
+            1
+          </span>
+          <span>{isBn ? "লক্ষণ ইনটেক" : "Symptom Intake"}</span>
+        </div>
+        <div className={`hidden sm:block flex-1 mx-3 h-0.5 ${currentStep >= 2 ? "bg-teal-500" : "bg-slate-200"}`}></div>
+        <div className={`flex items-center gap-2 ${currentStep >= 2 ? "text-teal-800 font-bold" : "text-slate-400"}`}>
+          <span
+            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              currentStep >= 2 ? "bg-teal-600 text-white" : "bg-slate-200 text-slate-600"
+            }`}
+          >
+            2
+          </span>
+          <span>{isBn ? "ক্লিনিক্যাল ড্রিল-ডাউন" : "Clinical Questions"}</span>
+        </div>
+        <div className={`hidden sm:block flex-1 mx-3 h-0.5 ${currentStep >= 3 ? "bg-red-500" : "bg-slate-200"}`}></div>
+        <div className={`flex items-center gap-2 ${currentStep >= 3 ? "text-red-700 font-bold" : "text-slate-400"}`}>
+          <span
+            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+              currentStep >= 3 ? "bg-red-600 text-white" : "bg-slate-200 text-slate-600"
+            }`}
+          >
+            3
+          </span>
+          <span>{isBn ? "জরুরি প্রস্তুতি ও ডিসপ্যাচ" : "Dispatch & Action"}</span>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
           <h2 className="font-bold text-lg text-slate-900 flex items-center gap-2">
             <span>
@@ -413,7 +701,7 @@ export default function TriagePanel({
 
         {/* Right Column (5 cols): Triage Agent & Action Dispatch */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Clinical Safety Protocol Card (replaces raw Decision Flip Engine debugger) */}
+          {/* Clinical Safety Protocol Card */}
           {triageState?.decision_flip_test && (
             <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-xs space-y-2 shadow-xs">
               <div className="flex items-center justify-between font-bold">
@@ -447,6 +735,37 @@ export default function TriagePanel({
             </div>
           )}
 
+          {/* Active Voice Waveform Orb (when recording) */}
+          {isListening && (
+            <div className="bg-red-50 border-2 border-red-400 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 text-center shadow-xs">
+              <div className="flex items-center gap-1.5 h-8">
+                <span className="w-1.5 h-3 bg-red-600 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                <span className="w-1.5 h-7 bg-red-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                <span className="w-1.5 h-8 bg-red-600 rounded-full animate-bounce [animation-delay:300ms]"></span>
+                <span className="w-1.5 h-5 bg-red-500 rounded-full animate-bounce [animation-delay:450ms]"></span>
+                <span className="w-1.5 h-6 bg-red-600 rounded-full animate-bounce [animation-delay:600ms]"></span>
+              </div>
+              <div>
+                <p className="font-extrabold text-xs text-red-950">
+                  {isBn ? "আপনার কণ্ঠ শোনা হচ্ছে... কথা বলুন" : "Listening to your voice... Speak now"}
+                </p>
+                <p className="text-[11px] text-red-700/80 mt-0.5">
+                  {isBn
+                    ? `ভাষা: বাংলা (${voiceLang}) • যেমন: 'আমার বুকে খুব চাপ লাগছে'`
+                    : `Language: English (${voiceLang}) • e.g. 'Severe chest pain'`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleVoiceInput}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1.5"
+              >
+                <StopCircle className="w-4 h-4" />
+                <span>{isBn ? "বলা শেষ হলে এখানে চাপুন (Stop)" : "Done Speaking (Stop)"}</span>
+              </button>
+            </div>
+          )}
+
           {/* Chat Messages Section */}
           <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
@@ -459,21 +778,41 @@ export default function TriagePanel({
               )}
             </div>
 
-            <div className="min-h-[170px] max-h-[240px] overflow-y-auto space-y-2.5 pr-1">
+            <div className="min-h-[170px] max-h-[260px] overflow-y-auto space-y-2.5 pr-1">
+              {/* If no messages yet, show Chief Complaint Quick Starter cards */}
               {messages.length === 0 && (
-                <div className="text-xs text-slate-500 text-center py-8 leading-relaxed">
-                  {isBn ? (
-                    <>
-                      বাম পাশের <strong className="text-slate-700">শারীরিক ম্যাপ</strong> বা{" "}
-                      <strong className="text-slate-700">ভাইটাল</strong> ব্যবহার করুন, অথবা নিচে কথা বলে / লিখে শুরু করুন।
-                    </>
-                  ) : (
-                    <>
-                      Select an anatomical zone on the <strong className="text-slate-700">Body Map</strong>, or speak/type below to begin intake.
-                    </>
-                  )}
+                <div className="space-y-2.5 py-1">
+                  <p className="text-xs font-semibold text-slate-600">
+                    {isBn ? "প্রধান জরুরি উপসর্গ বেছে নিয়ে তাৎক্ষণিক শুরু করুন:" : "Quick Start — Select your chief complaint:"}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {CHIEF_COMPLAINTS.map((c, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSend(isBn ? c.textBn : c.textEn)}
+                        className="text-left p-2.5 rounded-xl bg-white hover:bg-teal-50/70 border border-slate-200/90 hover:border-teal-300 transition shadow-xs flex items-start gap-2.5 group"
+                      >
+                        <span className="text-lg shrink-0">{c.icon}</span>
+                        <div>
+                          <span className="font-bold text-xs text-slate-800 group-hover:text-teal-900 block leading-tight">
+                            {isBn ? c.titleBn : c.titleEn}
+                          </span>
+                          <span className="text-[10px] text-slate-500 mt-0.5 block leading-tight">
+                            {isBn ? c.subtitleBn : c.subtitleEn}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 text-center pt-2">
+                    {isBn
+                      ? "অথবা বামের শারীরিক ম্যাপ স্পর্শ করুন / নিচে লিখুন বা বলুন"
+                      : "Or tap the body map on the left / speak or type below"}
+                  </div>
                 </div>
               )}
+
+              {/* Message Feed */}
               {messages.map((m, idx) => (
                 <div
                   key={idx}
@@ -486,6 +825,7 @@ export default function TriagePanel({
                   {m.content}
                 </div>
               ))}
+
               {loading && (
                 <div className="p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-xs text-xs text-teal-800 animate-pulse flex items-center gap-2 shadow-xs">
                   <Activity className="w-3.5 h-3.5 animate-spin text-teal-600" />
@@ -494,6 +834,35 @@ export default function TriagePanel({
               )}
             </div>
           </div>
+
+          {/* Ada Health-Style Guided Quick-Tap Chips */}
+          {guidedOptions.length > 0 && !loading && (
+            <div className="bg-teal-50/60 border border-teal-200/80 rounded-2xl p-3.5 space-y-2 shadow-xs">
+              <span className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
+                <span>{isBn ? "দ্রুত উত্তর দিতে চাপুন (Quick Responses):" : "Suggested Clinical Responses:"}</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {guidedOptions.map((opt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(opt.text)}
+                    className="p-2.5 rounded-xl bg-white hover:bg-teal-100/70 border border-teal-200 text-left transition flex items-center justify-between gap-2 shadow-xs group"
+                  >
+                    <div>
+                      <span className="text-xs font-semibold text-slate-800 group-hover:text-teal-900 block leading-tight">
+                        {opt.label}
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded border font-medium mt-1 inline-block ${opt.badgeColor}`}>
+                        {opt.badge}
+                      </span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-teal-600 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Visual Injury & First-Aid Card */}
           {visualData && (
@@ -605,77 +974,113 @@ export default function TriagePanel({
 
           {/* Action Dispatch & Emergency Handoff HUD */}
           {dispatchData && (
-            <div className="mt-2 space-y-3.5 border-t border-slate-200 pt-3">
+            <div className="mt-2 space-y-4 border-t border-slate-200 pt-4">
               {/* Emergency Ambulance Voice Dispatch Alert */}
               {dispatchData.autonomous_ambulance_call && (
-                <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 text-xs space-y-2 text-red-950 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 sm:p-5 text-xs space-y-3 text-red-950 shadow-sm">
+                  {/* Top Header & 999 Direct Call Action */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2 text-red-700 font-extrabold text-xs uppercase tracking-wide">
-                      <PhoneCall className="w-4 h-4 animate-bounce text-red-600" />
-                      <span>
-                        {isBn ? "জরুরি অ্যাম্বুলেন্স ডিসপ্যাচ সক্রিয়" : "EMERGENCY AMBULANCE DISPATCHED"} (
-                        {dispatchData.autonomous_ambulance_call.target_dispatcher})
-                      </span>
+                      <div className="p-1.5 bg-red-600 text-white rounded-lg animate-bounce">
+                        <PhoneCall className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span>{isBn ? "জরুরি অ্যাম্বুলেন্স ডিসপ্যাচ সক্রিয়" : "EMERGENCY AMBULANCE DISPATCHED"}</span>
+                        <span className="block text-[10px] text-red-600/90 font-mono font-normal">
+                          {dispatchData.autonomous_ambulance_call.target_dispatcher}
+                        </span>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => speakText(dispatchData.autonomous_ambulance_call.twiml_bengali_script, "bn-BD")}
-                      className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs"
-                    >
-                      <Volume2 className="w-3.5 h-3.5" />
-                      <span>{isBn ? "কল শুনুন" : "Replay Call"}</span>
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="tel:999"
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>{isBn ? "৯৯৯ কল করুন" : "Call 999 Now"}</span>
+                      </a>
+                      <button
+                        onClick={() => speakText(dispatchData.autonomous_ambulance_call.twiml_bengali_script, "bn-BD")}
+                        className="bg-white hover:bg-red-50 text-red-700 border border-red-300 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                        <span>{isBn ? "ভয়েস শুনুন" : "Hear Voice Call"}</span>
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-slate-900 font-semibold bg-white/90 p-2.5 rounded-xl border border-red-200 leading-relaxed">
-                    "{dispatchData.autonomous_ambulance_call.twiml_bengali_script}"
-                  </p>
-                  <p className="text-slate-500 text-[11px] italic">
-                    {dispatchData.autonomous_ambulance_call.english_transcript}
-                  </p>
+
+                  {/* Audio Dispatch Waveform & Script Strip */}
+                  <div className="bg-white/90 p-3.5 rounded-xl border border-red-200 space-y-2">
+                    <div className="flex items-center gap-2 text-[11px] text-red-700 font-bold">
+                      <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
+                      <span>{isBn ? "অ্যাম্বুলেন্স কন্ট্রোল রুমে প্রেরিত সরাসরি বার্তা:" : "Automated Bengali Radio Voice Message:"}</span>
+                    </div>
+                    <p className="text-slate-900 font-semibold text-xs leading-relaxed">
+                      "{dispatchData.autonomous_ambulance_call.twiml_bengali_script}"
+                    </p>
+                    <p className="text-slate-500 text-[11px] italic border-t border-slate-100 pt-1.5">
+                      {dispatchData.autonomous_ambulance_call.english_transcript}
+                    </p>
+                  </div>
                 </div>
               )}
 
               {/* Recommended Facilities & Scannable QR Side-by-Side */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {/* Facility Cards */}
-                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 text-xs space-y-2 shadow-xs">
+                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-xs space-y-2.5 shadow-xs">
                   <div className="font-bold text-slate-900 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-teal-600" />
-                      <span>{isBn ? "নিকটস্থ চিকিৎসাকেন্দ্র" : "Nearby Facilities"}</span>
+                      <span>{isBn ? "প্রস্তাবিত জরুরি চিকিৎসাকেন্দ্র" : "Recommended Facilities"}</span>
                     </span>
                     {coords && (
-                      <span className="text-[10px] text-teal-700 font-mono">
+                      <span className="text-[10px] text-teal-700 font-mono bg-teal-50 px-2 py-0.5 rounded border border-teal-200/60">
                         GPS: {coords.lat.toFixed(2)}, {coords.lng.toFixed(2)}
                       </span>
                     )}
                   </div>
-                  {dispatchData.recommended_facilities?.map((f, i) => (
-                    <div key={i} className="border-b border-slate-200 last:border-0 pb-2 pt-1">
-                      <p className="font-bold text-slate-900">{f.name}</p>
-                      <p className="text-slate-500 text-[11px]">
-                        {f.type} • {f.distance} ({f.eta})
-                      </p>
-                      <p className="text-amber-700 font-medium text-[11px]">{isBn ? "ল্যান্ডমার্ক:" : "Landmark:"} {f.landmark}</p>
-                    </div>
-                  ))}
+                  <div className="space-y-2">
+                    {dispatchData.recommended_facilities?.map((f, i) => (
+                      <div key={i} className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-slate-900 text-xs">{f.name}</p>
+                          <span className="text-[10px] font-bold text-teal-700 font-mono bg-teal-50 px-1.5 py-0.2 rounded">
+                            {f.eta}
+                          </span>
+                        </div>
+                        <p className="text-slate-500 text-[11px]">
+                          {f.type} • {f.distance}
+                        </p>
+                        <p className="text-amber-700 font-medium text-[11px]">
+                          {isBn ? "নিকটবর্তী ল্যান্ডমার্ক:" : "Landmark:"} {f.landmark}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Scannable ER SOAP Note QR Code */}
-                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 text-xs flex flex-col items-center justify-center text-center shadow-xs">
+                {/* Scannable ER SOAP Note QR Code Pass */}
+                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 text-xs flex flex-col items-center justify-center text-center shadow-xs">
                   <div className="font-bold text-slate-900 flex items-center gap-1.5 mb-2">
                     <QrCode className="w-3.5 h-3.5 text-teal-600" />
-                    <span>{isBn ? "হাসপাতাল ER হ্যান্ডঅফ QR" : "ER Handoff SOAP QR"}</span>
+                    <span>{isBn ? "হাসপাতাল ER হ্যান্ডঅফ ভাউচার" : "ER Clinical Intake Pass"}</span>
                   </div>
-                  <img
-                    src={dispatchData.er_handoff_packet?.qr_code_data_url}
-                    alt="ER Soap Note QR"
-                    className="w-24 h-24 rounded-xl border border-slate-300 bg-white p-1 shadow-xs"
-                  />
-                  <p className="text-xs text-teal-800 font-mono font-bold mt-2">
+                  <div className="bg-white p-2 rounded-2xl border border-slate-300 shadow-xs">
+                    <img
+                      src={dispatchData.er_handoff_packet?.qr_code_data_url}
+                      alt="ER Soap Note QR"
+                      className="w-28 h-28 object-contain"
+                    />
+                  </div>
+                  <p className="text-xs text-teal-800 font-mono font-extrabold mt-2">
                     {dispatchData.er_handoff_packet?.soap_note?.esi_level || `ESI Level ${currentEsi}`}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 max-w-[200px] truncate">
-                    {dispatchData.er_handoff_packet?.soap_note?.plan}
+                  <p className="text-[11px] text-slate-600 font-medium mt-0.5 max-w-[220px]">
+                    {isBn
+                      ? "হাসপাতালে পৌঁছানোর সাথে সাথে ট্রমা ডেস্কে এই কিউআর স্ক্যান করুন"
+                      : "Scan directly at ER trauma intake desk to bypass waiting line"}
                   </p>
                 </div>
               </div>
@@ -687,6 +1092,7 @@ export default function TriagePanel({
                     patientCoords={coords}
                     severity={triageState?.current_severity}
                     autoAnimate={true}
+                    lang={lang}
                   />
                 </div>
               </div>

@@ -14,6 +14,9 @@ import {
   Navigation,
   Pill,
   ShieldAlert,
+  FileText,
+  X,
+  Code2,
 } from "lucide-react";
 
 export default function HospitalERDashboard({ activeCase = null, onSelectCase, lang = "bn" }) {
@@ -21,7 +24,8 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
   const [selectedCaseId, setSelectedCaseId] = useState("HB-8092");
   const [isAccepted, setIsAccepted] = useState(false);
   const [copiedFhir, setCopiedFhir] = useState(false);
-  const [activeTab, setActiveTab] = useState("dossier"); // 'dossier' | 'map'
+  const [showFhirModal, setShowFhirModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("dossier"); // 'dossier' | 'whiteboard' | 'map'
   const [checklist, setChecklist] = useState({
     ecg: true,
     oxygen: true,
@@ -160,6 +164,77 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
     setCopiedFhir(true);
     setTimeout(() => setCopiedFhir(false), 2000);
   };
+
+  const BAYS_WHITEBOARD = [
+    {
+      bay: "Resus Bay 1",
+      patient: "HB-8079 (Code Blue)",
+      acuity: "ESI-1",
+      acuityColor: "bg-red-600 text-white",
+      status: "OCCUPIED",
+      statusColor: "bg-red-950 text-red-300 border-red-500",
+      staff: "Dr. Rafiq (Trauma Fellow) / RN Shila",
+      vitals: "HR 145 • BP 85/50 • SpO2 88%",
+      eta: "At Bedside",
+    },
+    {
+      bay: "Resus Bay 2",
+      patient: `${currentCase.patientId} (${currentCase.chiefComplaint.slice(0, 32)}...)`,
+      acuity: `ESI-${currentCase.esiLevel}`,
+      acuityColor: "bg-red-600 text-white",
+      status: isAccepted ? "CONFIRMED & PREPPED" : "INBOUND EN ROUTE",
+      statusColor: isAccepted
+        ? "bg-emerald-950 text-emerald-300 border-emerald-500"
+        : "bg-red-900/60 text-white border-red-500 animate-pulse",
+      staff: "Stat Team Assigned (ECG/IV prepped)",
+      vitals: `HR ${currentCase.vitals.heartRate} • BP ${currentCase.vitals.systolicBp}/${currentCase.vitals.diastolicBp} • SpO2 ${currentCase.vitals.spo2}%`,
+      eta: `ETA: ${currentCase.etaMinutes}m`,
+    },
+    {
+      bay: "Acute Bay 3",
+      patient: "Empty",
+      acuity: "ESI-3",
+      acuityColor: "bg-amber-600 text-white",
+      status: "AVAILABLE",
+      statusColor: "bg-emerald-950/60 text-emerald-300 border-emerald-600/40",
+      staff: "RN Nazmul (Primary Nurse)",
+      vitals: "Ready for bedding",
+      eta: "-",
+    },
+    {
+      bay: "Acute Bay 4",
+      patient: "HB-8091 (Right Ankle Fracture)",
+      acuity: "ESI-3",
+      acuityColor: "bg-amber-600 text-white",
+      status: "RESERVED",
+      statusColor: "bg-amber-950 text-amber-300 border-amber-500",
+      staff: "Orthopedic Registrar on Call",
+      vitals: "HR 88 • BP 130/82 • SpO2 98%",
+      eta: "ETA: 18m",
+    },
+    {
+      bay: "Fast Track 5",
+      patient: "Turnaround",
+      acuity: "ESI-4",
+      acuityColor: "bg-slate-700 text-slate-200",
+      status: "CLEANING",
+      statusColor: "bg-slate-900 text-slate-400 border-slate-700",
+      staff: "Housekeeping",
+      vitals: "Turnaround in < 5m",
+      eta: "-",
+    },
+    {
+      bay: "Fast Track 6",
+      patient: "Empty",
+      acuity: "ESI-5",
+      acuityColor: "bg-teal-700 text-white",
+      status: "AVAILABLE",
+      statusColor: "bg-emerald-950/60 text-emerald-300 border-emerald-600/40",
+      staff: "Ambulatory Triage Nurse",
+      vitals: "Ready for Walk-in",
+      eta: "-",
+    },
+  ];
 
   return (
     <div className="space-y-6 text-slate-100">
@@ -388,28 +463,37 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
                     SBAR Dossier
                   </button>
                   <button
+                    onClick={() => setActiveTab("whiteboard")}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                      activeTab === "whiteboard" ? "bg-teal-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Trackboard
+                  </button>
+                  <button
                     onClick={() => setActiveTab("map")}
                     className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
                       activeTab === "map" ? "bg-red-600 text-white shadow" : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <Navigation className="w-3.5 h-3.5" /> Inbound Map
+                    <Navigation className="w-3.5 h-3.5" /> Map
                   </button>
                 </div>
 
                 <button
-                  onClick={handleCopyFhir}
+                  onClick={() => setShowFhirModal(true)}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5"
+                  title="View HL7 FHIR JSON"
                 >
-                  {copiedFhir ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedFhir ? "FHIR Copied" : "Copy FHIR"}</span>
+                  <Code2 className="w-3.5 h-3.5 text-teal-400" />
+                  <span>FHIR</span>
                 </button>
               </div>
             </div>
 
             {/* Inbound Alert Banner */}
             <div
-              className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+              className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 text-xs ${
                 isAccepted
                   ? "bg-emerald-950/50 border-emerald-500 text-emerald-200"
                   : "bg-red-950/50 border-red-500 text-red-200"
@@ -429,16 +513,59 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
               </span>
             </div>
 
-            {/* Main Content Area: SBAR Dossier vs Inbound Telemetry Map */}
+            {/* Main Content Area: SBAR Dossier vs Trauma Trackboard vs Inbound Telemetry Map */}
             {activeTab === "map" ? (
               <div className="pt-1">
                 <DispatchMap
                   patientCoords={{ lat: 23.7258, lng: 90.3976 }}
                   severity={currentCase.severity}
                   autoAnimate={true}
+                  lang={lang}
                 />
               </div>
+            ) : activeTab === "whiteboard" ? (
+              /* ER Trackboard / Whiteboard Table */
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="font-bold uppercase tracking-wider text-slate-300">
+                    ER Resuscitation & Acute Bay Trackboard
+                  </span>
+                  <span className="text-[10px] text-teal-400 font-mono">Live Sync</span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#07090e] text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th className="p-3">Bay / Bed</th>
+                        <th className="p-3">Patient / Case</th>
+                        <th className="p-3">Acuity</th>
+                        <th className="p-3">Vitals Status</th>
+                        <th className="p-3">Staff Assigned</th>
+                        <th className="p-3">ETA / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80 font-mono text-[11px]">
+                      {BAYS_WHITEBOARD.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-slate-800/40 transition">
+                          <td className="p-3 font-bold text-white whitespace-nowrap">{row.bay}</td>
+                          <td className="p-3 text-slate-200 font-sans max-w-[160px] truncate">{row.patient}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${row.acuityColor}`}>
+                              {row.acuity}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-300">{row.vitals}</td>
+                          <td className="p-3 text-slate-400 font-sans text-xs">{row.staff}</td>
+                          <td className="p-3 font-bold text-amber-300">{row.eta}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : (
+              /* SBAR Clinical Dossier with Live ECG Rhythm Strip */
               <>
                 {/* SBAR Clinical Handoff Breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -454,8 +581,8 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
                     </div>
                   </div>
 
-                  {/* Objective Vitals */}
-                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                  {/* Objective Vitals & Live ECG Strip */}
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-teal-400 uppercase tracking-wider block text-[10px]">
                         2. Objective Field Vitals (O)
@@ -464,6 +591,18 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
                         NEWS2: {currentCase.news2Score}
                       </span>
                     </div>
+
+                    {/* Live Telemetry ECG Lead II Strip */}
+                    <div className="relative w-full h-8 bg-[#0a0d14] rounded-lg border border-slate-800/80 overflow-hidden flex items-center px-2">
+                      <div className="absolute left-2 text-[9px] font-mono text-emerald-400 font-bold z-10 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span>LEAD II (ST-ELEVATION MONITOR)</span>
+                      </div>
+                      <svg viewBox="0 0 300 40" className="w-full h-full stroke-emerald-400 fill-none stroke-[1.5] opacity-85">
+                        <path d="M 0 20 L 30 20 L 35 20 L 40 18 L 45 22 L 50 20 L 70 20 L 75 12 L 80 34 L 85 4 L 90 26 L 95 20 L 115 15 L 125 20 L 160 20 L 165 20 L 170 18 L 175 22 L 180 20 L 200 20 L 205 12 L 210 34 L 215 4 L 220 26 L 225 20 L 245 15 L 255 20 L 300 20" />
+                      </svg>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-1.5 text-center font-mono">
                       <div className="bg-[#0f1420] p-1.5 rounded-lg border border-slate-800">
                         <span className="text-[9px] text-slate-500 block">HEART RATE</span>
@@ -649,6 +788,47 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase, l
           </div>
         </div>
       </div>
+
+      {/* HL7 FHIR Packet Modal / Drawer */}
+      {showFhirModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0f1420] border border-slate-700 rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-400" />
+                <h3 className="font-bold text-sm text-white">
+                  HL7 FHIR R4 Inbound Clinical Encounter Resource
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowFhirModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Standardized hospital electronic medical record payload for pre-arrival admission. Compatible with Epic, Cerner, and OpenMRS.
+            </p>
+
+            <pre className="bg-[#07090e] p-4 rounded-xl border border-slate-800 text-[11px] font-mono text-teal-300 max-h-80 overflow-y-auto leading-relaxed">
+              {JSON.stringify(fhirPayload, null, 2)}
+            </pre>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[11px] text-slate-500 font-mono">Resource: Encounter/{currentCase.patientId}</span>
+              <button
+                onClick={handleCopyFhir}
+                className="bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+              >
+                {copiedFhir ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedFhir ? "Copied to Clipboard" : "Copy FHIR JSON"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

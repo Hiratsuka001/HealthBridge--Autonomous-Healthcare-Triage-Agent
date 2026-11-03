@@ -9,7 +9,7 @@ import {
   Compass,
   Play,
   RotateCcw,
-  Sparkles,
+  Activity,
 } from "lucide-react";
 
 const GEOAPIFY_KEY = import.meta.env.VITE_GEOAPIFY_KEY || "";
@@ -67,7 +67,9 @@ export default function DispatchMap({
   severity = "Severe",
   targetHospital = null,
   autoAnimate = false,
+  lang = "bn",
 }) {
+  const isBn = lang === "bn";
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const ambulanceMarkerRef = useRef(null);
@@ -314,61 +316,65 @@ export default function DispatchMap({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              Geoapify Live Dispatch & Telemetry Map
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-mono font-medium">
-                Live Road Network Routing
+              <span>{isBn ? "লাইভ অ্যাম্বুলেন্স নেভিগেশন ও ট্রমা রুট" : "Live Dispatch & Telemetry Navigation"}</span>
+              <span className="text-[10px] bg-teal-500/20 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded font-mono font-medium">
+                {isBn ? "লাইভ রুট ম্যাপিং" : "Live Routing"}
               </span>
             </h3>
             <p className="text-[11px] text-slate-400">
-              Interactive Leaflet routing • Real Dhaka hospital POIs & ambulance tracking
+              {isBn
+                ? "ঢাকার জরুরি হাসপাতাল ও ফার্মেসি ট্র্যাকিং • রিয়েল-টাইম জিপিএস"
+                : "Real-time road network routing • Dhaka emergency hospital POIs & ambulance tracking"}
             </p>
           </div>
         </div>
 
         {/* Filter and Simulation Action */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+          <div className="flex items-center bg-[#07090e] p-1 rounded-xl border border-slate-800 text-[11px]">
             <button
               onClick={() => setFilterType("all")}
-              className={`px-2.5 py-1 rounded transition font-medium ${
-                filterType === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+              className={`px-2.5 py-1 rounded-lg transition font-medium ${
+                filterType === "all" ? "bg-teal-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
-              All POIs
+              {isBn ? "সব" : "All"}
             </button>
             <button
               onClick={() => setFilterType("hospital")}
-              className={`px-2.5 py-1 rounded transition font-medium ${
-                filterType === "hospital" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
+              className={`px-2.5 py-1 rounded-lg transition font-medium ${
+                filterType === "hospital" ? "bg-red-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
-              Hospitals
+              {isBn ? "হাসপাতাল" : "Hospitals"}
             </button>
             <button
               onClick={() => setFilterType("pharmacy")}
-              className={`px-2.5 py-1 rounded transition font-medium ${
-                filterType === "pharmacy" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+              className={`px-2.5 py-1 rounded-lg transition font-medium ${
+                filterType === "pharmacy" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
-              Pharmacies
+              {isBn ? "ফার্মেসি" : "Pharmacies"}
             </button>
           </div>
 
           <button
             onClick={isSimulating ? stopSimulation : startAmbulanceSimulation}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
               isSimulating
                 ? "bg-red-600 hover:bg-red-500 text-white animate-pulse"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                : "bg-teal-700 hover:bg-teal-800 text-white"
             }`}
           >
             {isSimulating ? (
               <>
-                <RotateCcw className="w-3.5 h-3.5" /> Stop Simulation
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{isBn ? "সিমুলেশন থামান" : "Stop Run"}</span>
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5" /> Simulate Ambulance Run
+                <Play className="w-3.5 h-3.5" />
+                <span>{isBn ? "অ্যাম্বুলেন্স রান শুরু" : "Simulate Run"}</span>
               </>
             )}
           </button>
@@ -377,9 +383,9 @@ export default function DispatchMap({
 
       {/* Telemetry HUD Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between">
+        <div className="bg-[#07090e]/80 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Route Status</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold block">{isBn ? "রুট অবস্থা" : "Route Status"}</span>
             <span
               className={`font-bold font-mono text-xs ${
                 routeInfo.status.includes("ARRIVED")
@@ -395,56 +401,56 @@ export default function DispatchMap({
           <Compass className="w-4 h-4 text-slate-600" />
         </div>
 
-        <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between">
+        <div className="bg-[#07090e]/80 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Road ETA</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold block">{isBn ? "পৌঁছানোর সময়" : "Road ETA"}</span>
             <span className="font-bold font-mono text-xs text-amber-300 flex items-center gap-1">
               <Clock className="w-3 h-3" /> {routeInfo.time}
             </span>
           </div>
-          <span className="text-[10px] text-slate-500 font-mono">Real-Time</span>
+          <span className="text-[10px] text-slate-500 font-mono">Live</span>
         </div>
 
-        <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between">
+        <div className="bg-[#07090e]/80 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Transit Distance</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold block">{isBn ? "দূরত্ব" : "Distance"}</span>
             <span className="font-bold font-mono text-xs text-cyan-300">{routeInfo.distance}</span>
           </div>
           <MapPin className="w-3 h-3 text-cyan-500" />
         </div>
 
-        <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 flex items-center justify-between">
+        <div className="bg-[#07090e]/80 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 uppercase font-semibold block">Ambulance Speed</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold block">{isBn ? "অ্যাম্বুলেন্স গতি" : "Speed"}</span>
             <span className="font-bold font-mono text-xs text-white">
               {isSimulating ? `${routeInfo.speed} km/h` : "0 km/h"}
             </span>
           </div>
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <Activity className="w-3.5 h-3.5 text-teal-400" />
         </div>
       </div>
 
       {/* Map Canvas Container */}
-      <div className="relative w-full h-[340px] rounded-lg overflow-hidden border border-slate-800 shadow-inner">
+      <div className="relative w-full h-[340px] rounded-xl overflow-hidden border border-slate-800 shadow-inner">
         <div ref={mapContainerRef} className="w-full h-full z-0" />
 
         {/* Legend Overlay */}
-        <div className="absolute bottom-3 left-3 z-[400] bg-slate-950/90 border border-slate-800 rounded-lg p-2.5 text-[10px] text-slate-300 space-y-1 backdrop-blur pointer-events-none">
+        <div className="absolute bottom-3 left-3 z-[400] bg-[#07090e]/95 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-300 space-y-1.5 backdrop-blur pointer-events-none shadow-md">
           <div className="flex items-center gap-1.5 font-bold text-slate-100 mb-1">
             <span>🗺️</span>
-            <span>Dhaka Emergency Grid</span>
+            <span>{isBn ? "ঢাকা ইমার্জেন্সি গ্রিড" : "Dhaka Emergency Grid"}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-            <span>Patient (Shaheed Minar)</span>
+            <span>{isBn ? "রোগীর অবস্থান (শহীদ মিনার)" : "Patient Location"}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-            <span>Dhaka Medical College (Bay 2)</span>
+            <span>{isBn ? "ঢাকা মেডিকেল কলেজ (বে ২)" : "Dhaka Medical (Bay 2)"}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            <span>24/7 Registered Pharmacy</span>
+            <span>{isBn ? "২৪/৭ নিবন্ধিত ফার্মেসি" : "24/7 Registered Pharmacy"}</span>
           </div>
         </div>
       </div>

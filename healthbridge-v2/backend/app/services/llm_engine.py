@@ -9,11 +9,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = AsyncOpenAI(
-    api_key=os.getenv("LLM_API_KEY", "mock-key"),
-    base_url=os.getenv("LLM_BASE_URL", "https://api.meta.ai/v1"),
-    timeout=90.0
-)
+def get_client() -> AsyncOpenAI:
+    return AsyncOpenAI(
+        api_key=os.getenv("LLM_API_KEY", "mock-key"),
+        base_url=os.getenv("LLM_BASE_URL", "https://api.meta.ai/v1"),
+        timeout=90.0
+    )
 
 MODEL_NAME = os.getenv("LLM_MODEL", "muse-spark-1.3")
 
@@ -132,12 +133,27 @@ def _fallback_triage_logic(
             clinical_rationale=f"Routine presentation: Red flags ruled out, vitals stable. ESI Level {esi}."
         )
     else:
+        is_greeting = any(
+            re.search(rf"\b{g}\b", last_user_msg)
+            for g in ["hello", "hi", "hey", "hola", "greetings", "হ্যালো", "সালাম", "নমস্কার", "শুভ"]
+        ) and len(last_user_msg.split()) <= 4
+
         is_trauma = any(w in all_user_text for w in ["burn", "wound", "পুড়ে", "ক্ষত", "কাটা"])
-        question = (
-            "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)"
-            if is_trauma else
-            "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)"
-        )
+        is_dizzy = any(w in all_user_text for w in ["dizzy", "মাথা", "ঘুর", "দুর্বল", "faint"])
+
+        if is_greeting:
+            question = "হ্যালো! আমি হেলথব্রিজ জরুরি ট্রায়াজ সহকারী। আপনার বা রোগীর কী কী শারীরিক সমস্যা বা লক্ষণ দেখা দিচ্ছে অনুগ্রহ করে বিস্তারিত বলুন। (Hello! I am HealthBridge triage assistant. What symptoms or medical emergency are you or the patient experiencing?)"
+            missing_info = "Patient chief complaint and acute symptom onset"
+        elif is_trauma:
+            question = "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)"
+            missing_info = "Presence of active arterial bleeding or deep fascial exposure"
+        elif is_dizzy:
+            question = "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)"
+            missing_info = "Presence of chest pain, shortness of breath, active bleeding, or slurred speech"
+        else:
+            question = "আপনার কি বুকে ব্যথা, শ্বাসকষ্ট, প্রচণ্ড পেটব্যথা বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pain, shortness of breath, severe abdominal pain, or difficulty speaking?)"
+            missing_info = "Critical red flags: cardiac, respiratory, or acute neurological deficits"
+
         esi = calculate_esi(
             news2_score=news2_score,
             avpu=v_dict.get("avpu", "Alert"),
@@ -147,9 +163,9 @@ def _fallback_triage_logic(
         )
         return TriageEngineResponse(
             decision_flip_test={
-                "missing_critical_info": "Presence of chest pain, shortness of breath, active bleeding, or slurred speech",
+                "missing_critical_info": missing_info,
                 "has_verified_info": False,
-                "should_escalate": True
+                "should_escalate": not is_greeting
             },
             current_severity="Moderate",
             next_question=question,
@@ -181,7 +197,8 @@ async def process_triage_turn(
 
     try:
         messages = [{"role": "system", "content": system_content}] + conversation_history
-        response = await client.beta.chat.completions.parse(
+        llm_client = get_client()
+        response = await llm_client.beta.chat.completions.parse(
             model=MODEL_NAME,
             messages=messages,
             response_format=TriageEngineResponse,

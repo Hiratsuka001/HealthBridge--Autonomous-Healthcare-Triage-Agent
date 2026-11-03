@@ -52,19 +52,39 @@ function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
     };
   }
 
+  const allUserText = messages.filter((m) => m.role === "user").map((m) => (m.content || "").toLowerCase()).join(" ");
+  const isGreeting = ["hello", "hi", "hey", "hola", "হ্যালো", "সালাম", "নমস্কার", "শুভ"].some((g) =>
+    lastMsg.includes(g)
+  ) && lastMsg.split(" ").length <= 4;
+  const isTrauma = ["burn", "wound", "পুড়ে", "ক্ষত", "কাটা"].some((w) => allUserText.includes(w));
+  const isDizzy = ["dizzy", "মাথা", "ঘুর", "দুর্বল", "faint"].some((w) => allUserText.includes(w));
+
+  let nextQ = "আপনার কি বুকে ব্যথা, শ্বাসকষ্ট, প্রচণ্ড পেটব্যথা বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pain, shortness of breath, severe abdominal pain, or difficulty speaking?)";
+  let missingInfo = "Presence of critical red flags (cardiac, respiratory, or neurological deficits)";
+
+  if (isGreeting) {
+    nextQ = "হ্যালো! আমি হেলথব্রিজ জরুরি ট্রায়াজ সহকারী। আপনার বা রোগীর কী কী শারীরিক সমস্যা বা লক্ষণ দেখা দিচ্ছে অনুগ্রহ করে বিস্তারিত বলুন। (Hello! I am HealthBridge triage assistant. What medical symptoms or emergency are you experiencing?)";
+    missingInfo = "Patient chief complaint and acute symptom onset";
+  } else if (isTrauma) {
+    nextQ = "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)";
+    missingInfo = "Active arterial hemorrhage or visible deep fascial exposure";
+  } else if (isDizzy) {
+    nextQ = "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)";
+    missingInfo = "Presence of chest pain, shortness of breath, active bleeding, or slurred speech";
+  }
+
   return {
     decision_flip_test: {
-      missing_critical_info: "Presence of chest pain, shortness of breath, active bleeding, or slurred speech",
+      missing_critical_info: missingInfo,
       has_verified_info: false,
-      should_escalate: true,
+      should_escalate: !isGreeting,
     },
     current_severity: "Moderate",
-    next_question:
-      "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)",
+    next_question: nextQ,
     is_triage_complete: false,
     news2_score: news.score,
     esi_level: esi.level,
-    clinical_rationale: `Triage evaluation ongoing. Checking critical flip conditions. Current ESI-${esi.level}.`
+    clinical_rationale: `Triage evaluation ongoing. Checking critical flip conditions. Current ESI-${esi.level}.`,
   };
 }
 
