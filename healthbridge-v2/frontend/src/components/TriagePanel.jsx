@@ -660,7 +660,13 @@ export default function TriagePanel({
 
           {activeWidgetTab === "map" && (
             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-              <DispatchMap patientCoords={coords} severity={triageState?.current_severity} autoAnimate={false} />
+              <DispatchMap
+                patientCoords={coords}
+                severity={triageState?.current_severity}
+                targetHospital={dispatchData?.recommended_facilities?.[0]}
+                autoAnimate={false}
+                lang={lang}
+              />
             </div>
           )}
 
@@ -1098,6 +1104,7 @@ export default function TriagePanel({
                   <DispatchMap
                     patientCoords={coords}
                     severity={triageState?.current_severity}
+                    targetHospital={dispatchData?.recommended_facilities?.[0]}
                     autoAnimate={true}
                     lang={lang}
                   />

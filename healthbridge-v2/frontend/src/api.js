@@ -92,12 +92,27 @@ function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
   };
 }
 
-function fallbackDispatch(severity, decisionFlipSummary, vitals = null, esiLevel = null) {
+function fallbackDispatch(severity, decisionFlipSummary, coords = null, vitals = null, esiLevel = null) {
   const isSevere = (severity || "").toLowerCase() === "severe";
   const esiText = esiLevel ? `ESI Level ${esiLevel}` : (isSevere ? "ESI Level 2" : "ESI Level 4");
   const vitalsText = vitals ? `HR:${vitals.heartRate || 75} BP:${vitals.systolicBp || 120}/${vitals.diastolicBp || 80} SpO2:${vitals.spo2 || 98}%` : "Vitals Stable";
   const qrData = encodeURIComponent(`HealthBridge SOAP: ${severity} | ${esiText} | ${vitalsText} | ${decisionFlipSummary}`);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${qrData}`;
+
+  const lat = coords?.lat ?? 23.7771;
+  const lng = coords?.lng ?? 90.3994;
+
+  const dLatDmch = (23.7250 - lat) * 111;
+  const dLngDmch = (90.3975 - lng) * 111 * Math.cos(lat * Math.PI / 180);
+  const dmchKm = Math.max(0.6, (Math.sqrt(dLatDmch * dLatDmch + dLngDmch * dLngDmch) * 1.35)).toFixed(1);
+  const dmchMins = Math.max(2, Math.ceil((dmchKm / 28) * 60));
+
+  const dLatNicvd = (23.7702 - lat) * 111;
+  const dLngNicvd = (90.3668 - lng) * 111 * Math.cos(lat * Math.PI / 180);
+  const nicvdKm = Math.max(0.6, (Math.sqrt(dLatNicvd * dLatNicvd + dLngNicvd * dLngNicvd) * 1.35)).toFixed(1);
+  const nicvdMins = Math.max(2, Math.ceil((nicvdKm / 28) * 60));
+
+  const landmarkLabel = (lat > 23.76 && lng > 90.41) ? "Rampura / Hatirjheel Link Road" : "Central Dhaka";
 
   return {
     severity,
@@ -106,16 +121,16 @@ function fallbackDispatch(severity, decisionFlipSummary, vitals = null, esiLevel
           {
             name: "Dhaka Medical College Hospital (Emergency Care Unit)",
             type: "Specialized Trauma & Cardiac ER",
-            distance: "2.4 km",
-            eta: "11 mins",
-            landmark: "Near Shaheed Minar / Bakshibazar Gate",
+            distance: `${dmchKm} km`,
+            eta: `${dmchMins} mins`,
+            landmark: "Bakshibazar Gate 2",
             phone: "+8801711000999",
           },
           {
             name: "NICVD (National Institute of Cardiovascular Diseases)",
             type: "Cardiac Emergency ER",
-            distance: "3.1 km",
-            eta: "14 mins",
+            distance: `${nicvdKm} km`,
+            eta: `${nicvdMins} mins`,
             landmark: "Sher-e-Bangla Nagar, College Gate",
             phone: "+8801711000888",
           },
@@ -124,9 +139,9 @@ function fallbackDispatch(severity, decisionFlipSummary, vitals = null, esiLevel
           {
             name: "Lazz Pharma (24/7 Registered Pharmacist)",
             type: "Local Pharmacy & ORS Station",
-            distance: "0.3 km",
+            distance: "0.4 km",
             eta: "2 mins",
-            landmark: "Main Road Corner, beside City Bank ATM",
+            landmark: "Main Road Corner",
             phone: "+8801700000111",
           },
         ],
@@ -147,9 +162,9 @@ function fallbackDispatch(severity, decisionFlipSummary, vitals = null, esiLevel
           target_dispatcher: "Dhaka Medical College Hospital",
           dispatcher_phone: "+8801711000999",
           twiml_bengali_script:
-            "জরুরি অ্যাম্বুলেন্স ডিসপ্যাচ! হেলথ-ব্রিজ এআই কথা বলছি। একজন গুরুতর রোগী সাহায্য চাইছেন। লোকেশন ল্যান্ডমার্ক: Near Shaheed Minar। রোগীকে দ্রুত নেওয়া প্রয়োজন!",
+            `জরুরি অ্যাম্বুলেন্স ডিসপ্যাচ! হেলথ-ব্রিজ এআই কথা বলছি। একজন গুরুতর রোগী সাহায্য চাইছেন। লোকেশন ল্যান্ডমার্ক: ${landmarkLabel} (জিপিএস: ${lat.toFixed(4)}, ${lng.toFixed(4)})। রোগীকে দ্রুত নেওয়া প্রয়োজন!`,
           english_transcript:
-            "Emergency Ambulance Dispatch from HealthBridge AI. Critical patient requiring immediate acute transport. Landmark: Near Shaheed Minar.",
+            `Emergency Ambulance Dispatch from HealthBridge AI. Critical patient requiring immediate acute transport. Landmark: ${landmarkLabel} (GPS: ${lat.toFixed(4)}, ${lng.toFixed(4)}).`,
         }
       : null,
   };
@@ -340,7 +355,7 @@ export async function executeDispatch(messages, severity, decisionFlipSummary, c
     return await res.json();
   } catch (err) {
     console.warn("Dispatch backend unavailable, using client fallback:", err.message);
-    return fallbackDispatch(severity, decisionFlipSummary, vitals, esiLevel);
+    return fallbackDispatch(severity, decisionFlipSummary, coords, vitals, esiLevel);
   }
 }
 

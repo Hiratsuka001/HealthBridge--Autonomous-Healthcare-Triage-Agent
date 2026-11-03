@@ -38,22 +38,41 @@ export default async function handler(req, res) {
     }
   }
 
-  // Fallback simulated road coordinates
-  const steps = 15;
+  // Fallback simulated road coordinates with realistic Dhaka road distance calculation
+  const sLat = Number(start_lat);
+  const sLng = Number(start_lng);
+  const dLat = Number(dest_lat);
+  const dLng = Number(dest_lng);
+
+  const steps = 18;
   const simCoords = [];
   for (let i = 0; i <= steps; i++) {
     const frac = i / steps;
     const curve = Math.sin(frac * Math.PI) * 0.003;
     simCoords.push([
-      Number(start_lat) + (Number(dest_lat) - Number(start_lat)) * frac + curve,
-      Number(start_lng) + (Number(dest_lng) - Number(start_lng)) * frac + curve * 0.5
+      sLat + (dLat - sLat) * frac + curve,
+      sLng + (dLng - sLng) * frac + curve * 0.5
     ]);
   }
 
+  // Calculate Haversine road distance
+  const dLatRad = ((dLat - sLat) * Math.PI) / 180;
+  const dLngRad = ((dLng - sLng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLatRad / 2) * Math.sin(dLatRad / 2) +
+    Math.cos((sLat * Math.PI) / 180) *
+      Math.cos((dLat * Math.PI) / 180) *
+      Math.sin(dLngRad / 2) *
+      Math.sin(dLngRad / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const straightMeters = 6371000 * c;
+  const roadMeters = Math.round(Math.max(500, straightMeters * 1.35));
+  const roadSeconds = Math.round(Math.max(120, (roadMeters / (28 * 1000 / 3600)))); // ~28 km/h emergency speed
+
   return res.status(200).json({
     coordinates: simCoords,
-    distance_meters: 1200,
-    time_seconds: 480,
-    source: "Simulated Ambulance Routing (Bakshibazar Road)"
+    distance_meters: roadMeters,
+    time_seconds: roadSeconds,
+    source: "Simulated Ambulance Routing (Dynamic Dhaka Coordinates)"
   });
 }
