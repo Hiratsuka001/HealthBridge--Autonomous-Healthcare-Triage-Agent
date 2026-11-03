@@ -69,7 +69,27 @@ CRITICAL INSTRUCTIONS:
 
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content;
-    const parsed = JSON.parse(rawContent);
+    const parsed = typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
+
+    // Normalize property names in case the LLM used alternate keys
+    if (parsed.decision_flip_test) {
+      if (!parsed.decision_flip_test.missing_critical_info) {
+        parsed.decision_flip_test.missing_critical_info =
+          parsed.decision_flip_test.unasked_info_that_could_flip_urgency ||
+          parsed.decision_flip_test.missing_info ||
+          "Head trauma, loss of consciousness, or systemic danger signs";
+      }
+      if (parsed.decision_flip_test.has_verified_info === undefined) {
+        parsed.decision_flip_test.has_verified_info = false;
+      }
+      if (parsed.decision_flip_test.should_escalate === undefined) {
+        parsed.decision_flip_test.should_escalate = true;
+      }
+    }
+
+    if (!parsed.current_severity) {
+      parsed.current_severity = "Moderate";
+    }
 
     return res.status(200).json(parsed);
   } catch (err) {
