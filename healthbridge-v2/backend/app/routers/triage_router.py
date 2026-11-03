@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     visual_context: Optional[str] = ""
     vitals: Optional[Dict[str, Any]] = None
     selected_region: Optional[str] = None
+    provider: Optional[str] = "gemini"
 
 @router.post("/chat")
 async def triage_chat(req: ChatRequest):
@@ -21,7 +22,8 @@ async def triage_chat(req: ChatRequest):
         conversation_history=req.messages,
         visual_context=req.visual_context or "",
         vitals=req.vitals,
-        selected_region=req.selected_region
+        selected_region=req.selected_region,
+        provider=req.provider
     )
     return result
 

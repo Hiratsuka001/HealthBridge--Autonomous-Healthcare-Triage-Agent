@@ -1,8 +1,11 @@
 import os
 import re
+import time
+import json
+import httpx
 from typing import Optional, Dict, Any
 from openai import AsyncOpenAI
-from app.schemas.triage import TriageEngineResponse
+from app.schemas.triage import TriageEngineResponse, DecisionFlipTest
 from app.services.rag_service import retrieve_clinical_protocol
 from app.services.clinical_calculator import calculate_news2, calculate_esi
 from dotenv import load_dotenv
@@ -109,7 +112,9 @@ def _fallback_triage_logic(
             is_triage_complete=True,
             news2_score=news2_score,
             esi_level=esi,
-            clinical_rationale=f"Escalated: Red flags or severe vitals instability confirmed. ESI Level {esi} assigned. NEWS2: {news2_score}."
+            clinical_rationale=f"Escalated: Red flags or severe vitals instability confirmed. ESI Level {esi} assigned. NEWS2: {news2_score}.",
+            provider_used="who-protocol",
+            latency_seconds=0.01
         )
     elif (is_negated and len(conversation_history) >= 3) or len(conversation_history) >= 7:
         esi = calculate_esi(
@@ -130,7 +135,9 @@ def _fallback_triage_logic(
             is_triage_complete=True,
             news2_score=news2_score,
             esi_level=esi,
-            clinical_rationale=f"Routine presentation: Red flags ruled out, vitals stable. ESI Level {esi}."
+            clinical_rationale=f"Routine presentation: Red flags ruled out, vitals stable. ESI Level {esi}.",
+            provider_used="who-protocol",
+            latency_seconds=0.01
         )
     else:
         is_greeting = any(
@@ -176,15 +183,143 @@ def _fallback_triage_logic(
             is_triage_complete=False,
             news2_score=news2_score,
             esi_level=esi,
-            clinical_rationale=f"Evaluation in progress. Verifying missing critical indicators. Baseline NEWS2: {news2_score}."
+            clinical_rationale=f"Evaluation in progress. Verifying missing critical indicators. Baseline NEWS2: {news2_score}.",
+            provider_used="who-protocol",
+            latency_seconds=0.01
         )
+
+async def _call_gemini_triage(
+    conversation_history: list,
+    system_content: str,
+    vitals: Optional[Dict[str, Any]] = None,
+    selected_region: Optional[str] = None
+) -> Optional[TriageEngineResponse]:
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key or gemini_key == "mock-key":
+        return None
+
+    formatted_dialogue = []
+    for m in conversation_history:
+        role = "Patient" if m.get("role") == "user" else "Triage Doctor (HealthBridge)"
+        formatted_dialogue.append(f"{role}: {m.get('content', '')}")
+    dialogue_text = "\n".join(formatted_dialogue)
+
+    full_prompt = f"""
+{system_content}
+
+CURRENT PATIENT CONVERSATION HISTORY:
+{dialogue_text}
+
+Analyze the patient presentation according to WHO protocols and clinical red flags.
+Respond in valid JSON with this schema:
+{{
+  "current_severity": "Severe" | "Moderate" | "Mild",
+  "next_question": "Single next focused question in user's language (Bengali or English), or null if triage is complete",
+  "is_triage_complete": true or false,
+  "clinical_rationale": "Clinical rationale explaining the assigned severity, vital sign interpretation, and next steps",
+  "decision_flip_test": {{
+    "missing_critical_info": "Specific variable that could escalate urgency if positive",
+    "has_verified_info": true or false,
+    "should_escalate": true or false
+  }}
+}}
+"""
+
+    models = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3-flash-preview"]
+    headers = {"Content-Type": "application/json", "x-goog-api-key": gemini_key}
+    payload = {
+        "contents": [{"parts": [{"text": full_prompt}]}],
+        "generationConfig": {
+            "response_mime_type": "application/json",
+            "temperature": 0.2
+        }
+    }
+
+    t0 = time.time()
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            try:
+                resp = await client.post(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                    if parts:
+                        raw_json = parts[0].get("text", "")
+                        parsed_dict = json.loads(raw_json)
+
+                        sev = parsed_dict.get("current_severity", "Moderate").title()
+                        if sev not in ["Mild", "Moderate", "Severe"]:
+                            sev = "Moderate"
+
+                        flip_raw = parsed_dict.get("decision_flip_test", {})
+                        if isinstance(flip_raw, str):
+                            flip_obj = DecisionFlipTest(
+                                missing_critical_info=flip_raw,
+                                has_verified_info=False,
+                                should_escalate=(sev == "Severe")
+                            )
+                        else:
+                            flip_obj = DecisionFlipTest(
+                                missing_critical_info=flip_raw.get("missing_critical_info", "Critical red flags"),
+                                has_verified_info=bool(flip_raw.get("has_verified_info", False)),
+                                should_escalate=bool(flip_raw.get("should_escalate", sev == "Severe"))
+                            )
+
+                        dur = round(time.time() - t0, 2)
+                        return TriageEngineResponse(
+                            current_severity=sev,
+                            next_question=parsed_dict.get("next_question"),
+                            is_triage_complete=bool(parsed_dict.get("is_triage_complete", False)),
+                            clinical_rationale=parsed_dict.get("clinical_rationale", "Evaluated via Gemini Flash."),
+                            decision_flip_test=flip_obj,
+                            provider_used=f"gemini-flash ({model})",
+                            latency_seconds=dur
+                        )
+                elif resp.status_code in [404, 503, 429]:
+                    print(f"[Gemini Triage {resp.status_code}] on {model}: {resp.text[:100]}")
+                    continue
+                else:
+                    print(f"[Gemini Triage HTTP {resp.status_code}] on {model}: {resp.text[:150]}")
+            except Exception as e:
+                import traceback
+                print(f"[Gemini Triage Failover] {model} exception: {repr(e)}")
+                traceback.print_exc()
+                continue
+
+    return None
+
+async def _call_meta_triage(
+    conversation_history: list,
+    system_content: str
+) -> Optional[TriageEngineResponse]:
+    t0 = time.time()
+    messages = [{"role": "system", "content": system_content}] + conversation_history
+    llm_client = get_client()
+    response = await llm_client.beta.chat.completions.parse(
+        model=MODEL_NAME,
+        messages=messages,
+        response_format=TriageEngineResponse,
+        temperature=0.2,
+        max_tokens=4096
+    )
+    parsed = response.choices[0].message.parsed
+    parsed.provider_used = f"meta ({MODEL_NAME})"
+    parsed.latency_seconds = round(time.time() - t0, 2)
+    return parsed
 
 async def process_triage_turn(
     conversation_history: list,
     visual_context: str = "",
     vitals: Optional[Dict[str, Any]] = None,
-    selected_region: Optional[str] = None
+    selected_region: Optional[str] = None,
+    provider: Optional[str] = None
 ) -> TriageEngineResponse:
+    target_provider = (provider or os.getenv("AI_PROVIDER_MODE", "gemini")).lower()
+
+    if target_provider in ["mock", "protocol", "who_protocol"]:
+        return _fallback_triage_logic(conversation_history, vitals, selected_region)
+
     full_text = " ".join([m.get("content", "") for m in conversation_history])
     rag_context = retrieve_clinical_protocol(full_text)
 
@@ -196,40 +331,43 @@ async def process_triage_turn(
     if selected_region:
         system_content += f"\n\nANATOMICAL FOCUS REGION: {selected_region}"
 
-    if os.getenv("AI_PROVIDER_MODE", "mock") == "mock":
-        return _fallback_triage_logic(conversation_history, vitals, selected_region)
+    res = None
+    if "gemini" in target_provider:
+        res = await _call_gemini_triage(conversation_history, system_content, vitals, selected_region)
+        if not res:
+            try:
+                res = await _call_meta_triage(conversation_history, system_content)
+            except Exception as e:
+                print(f"[Meta Failover] {e}")
+                res = _fallback_triage_logic(conversation_history, vitals, selected_region)
+    elif "meta" in target_provider:
+        try:
+            res = await _call_meta_triage(conversation_history, system_content)
+        except Exception as e:
+            print(f"[Meta Error] {e}. Fast failover to Gemini Flash.")
+            res = await _call_gemini_triage(conversation_history, system_content, vitals, selected_region)
+            if not res:
+                res = _fallback_triage_logic(conversation_history, vitals, selected_region)
+    else:
+        res = _fallback_triage_logic(conversation_history, vitals, selected_region)
 
-    try:
-        messages = [{"role": "system", "content": system_content}] + conversation_history
-        llm_client = get_client()
-        response = await llm_client.beta.chat.completions.parse(
-            model=MODEL_NAME,
-            messages=messages,
-            response_format=TriageEngineResponse,
-            temperature=0.2,
-            max_tokens=4096
+    if res and res.news2_score is None and vitals:
+        v_calc = calculate_news2(
+            respiratory_rate=vitals.get("respiratory_rate", 16),
+            spo2=vitals.get("spo2", 98),
+            systolic_bp=vitals.get("systolic_bp", 120),
+            heart_rate=vitals.get("heart_rate", 75),
+            temp_celsius=vitals.get("temperature", 37.0),
+            avpu=vitals.get("avpu", "Alert"),
+            on_supplemental_o2=vitals.get("on_supplemental_o2", False)
         )
-        parsed = response.choices[0].message.parsed
-        # Ensure NEWS2 and ESI are populated
-        if parsed.news2_score is None and vitals:
-            v_calc = calculate_news2(
-                respiratory_rate=vitals.get("respiratory_rate", 16),
-                spo2=vitals.get("spo2", 98),
-                systolic_bp=vitals.get("systolic_bp", 120),
-                heart_rate=vitals.get("heart_rate", 75),
-                temp_celsius=vitals.get("temperature", 37.0),
-                avpu=vitals.get("avpu", "Alert"),
-                on_supplemental_o2=vitals.get("on_supplemental_o2", False)
-            )
-            parsed.news2_score = v_calc["score"]
-            parsed.esi_level = calculate_esi(
-                news2_score=v_calc["score"],
-                avpu=vitals.get("avpu", "Alert"),
-                spo2=vitals.get("spo2", 98),
-                pain_level=vitals.get("pain_level", 0),
-                has_high_risk_symptom=(parsed.current_severity == "Severe")
-            )
-        return parsed
-    except Exception as e:
-        print(f"[HealthBridge Failover] API error or quota exceeded ({e}). Falling back to cached clinical pathway.")
-        return _fallback_triage_logic(conversation_history, vitals, selected_region)
+        res.news2_score = v_calc["score"]
+        res.esi_level = calculate_esi(
+            news2_score=v_calc["score"],
+            avpu=vitals.get("avpu", "Alert"),
+            spo2=vitals.get("spo2", 98),
+            pain_level=vitals.get("pain_level", 0),
+            has_high_risk_symptom=(res.current_severity == "Severe")
+        )
+
+    return res

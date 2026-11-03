@@ -187,7 +187,7 @@ function fallbackVision() {
   };
 }
 
-export async function sendTriageMessage(messages, visualContext = "", vitals = null, selectedRegion = null) {
+export async function sendTriageMessage(messages, visualContext = "", vitals = null, selectedRegion = null, provider = "gemini") {
   try {
     const res = await fetch(`${API_BASE}/triage/chat`, {
       method: "POST",
@@ -196,7 +196,8 @@ export async function sendTriageMessage(messages, visualContext = "", vitals = n
         messages,
         visual_context: visualContext,
         vitals,
-        selected_region: selectedRegion
+        selected_region: selectedRegion,
+        provider: provider
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

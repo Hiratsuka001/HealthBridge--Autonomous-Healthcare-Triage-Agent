@@ -26,6 +26,8 @@ import {
   ShieldCheck,
   ChevronRight,
   StopCircle,
+  Zap,
+  Cpu,
 } from "lucide-react";
 
 const CHIEF_COMPLAINTS = [
@@ -270,6 +272,7 @@ export default function TriagePanel({
   const [currentScoring, setCurrentScoring] = useState(null);
   const [selectedBodyRegion, setSelectedBodyRegion] = useState(initialRegion);
   const [scannedMedications, setScannedMedications] = useState([]);
+  const [activeProvider, setActiveProvider] = useState("gemini"); // 'gemini' | 'meta' | 'protocol'
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -315,7 +318,8 @@ export default function TriagePanel({
         updatedMessages,
         visualData?.visual_severity_context || "",
         currentVitals,
-        selectedBodyRegion
+        selectedBodyRegion,
+        activeProvider
       );
       setTriageState(res);
 
@@ -777,16 +781,86 @@ export default function TriagePanel({
             </div>
           )}
 
+          {/* AI Model Switcher Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200/90 rounded-2xl text-xs shadow-xs">
+            <div className="flex items-center gap-1.5 text-slate-700">
+              <Cpu className="w-3.5 h-3.5 text-teal-600" />
+              <span className="font-bold text-[11px]">
+                {isBn ? "লাইভ এআই ইঞ্জিন:" : "Live AI Engine:"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setActiveProvider("gemini")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition ${
+                  activeProvider === "gemini"
+                    ? "bg-teal-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Google Gemini 3.1 Flash Lite (<1s sub-second latency)"
+              >
+                <Zap className="w-3 h-3 text-amber-300" />
+                <span>Gemini Flash</span>
+                <span className={`text-[9px] px-1 rounded font-mono ${activeProvider === "gemini" ? "bg-teal-800 text-teal-200" : "bg-slate-300 text-slate-700"}`}>
+                  &lt;1s
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveProvider("meta")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition ${
+                  activeProvider === "meta"
+                    ? "bg-indigo-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Meta Muse Spark 1.3 (Deep Clinical Reasoning ~15s)"
+              >
+                <Brain className="w-3 h-3 text-indigo-300" />
+                <span>Meta Muse</span>
+                <span className={`text-[9px] px-1 rounded font-mono ${activeProvider === "meta" ? "bg-indigo-800 text-indigo-200" : "bg-slate-300 text-slate-700"}`}>
+                  Deep
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveProvider("protocol")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 transition ${
+                  activeProvider === "protocol"
+                    ? "bg-slate-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Deterministic WHO Emergency Triage Protocol (Offline)"
+              >
+                <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                <span>WHO Protocol</span>
+              </button>
+            </div>
+          </div>
+
           {/* Chat Messages Section */}
           <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-3">
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-2.5 mb-3 gap-2">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
                 <span>{isBn ? "ট্রায়াজ কথোপকথন ও লক্ষণ পর্যালোচনা" : "Triage Dialogue & Clinical Q&A"}</span>
               </span>
-              {messages.length > 0 && (
-                <span className="text-xs text-slate-500 font-medium">{messages.length} messages</span>
-              )}
+              <div className="flex items-center gap-2">
+                {triageState?.provider_used && (
+                  <span className="text-[10px] bg-teal-100/90 text-teal-900 border border-teal-200 font-mono px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Zap className="w-2.5 h-2.5 text-teal-700" />
+                    <span>{triageState.provider_used}</span>
+                    {triageState.latency_seconds ? (
+                      <span className="font-bold text-teal-950">• {triageState.latency_seconds}s</span>
+                    ) : null}
+                  </span>
+                )}
+                {messages.length > 0 && (
+                  <span className="text-xs text-slate-500 font-medium">{messages.length} messages</span>
+                )}
+              </div>
             </div>
 
             <div className="min-h-[170px] max-h-[260px] overflow-y-auto space-y-2.5 pr-1">

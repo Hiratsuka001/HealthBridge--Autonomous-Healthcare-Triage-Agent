@@ -57,3 +57,11 @@ class TriageEngineResponse(BaseModel):
         default=None,
         description="Underlying clinical rationale behind the assigned severity and urgency"
     )
+    provider_used: Optional[str] = Field(
+        default="gemini-flash",
+        description="Name of the AI provider/model used to generate this turn"
+    )
+    latency_seconds: Optional[float] = Field(
+        default=None,
+        description="Response generation latency in seconds"
+    )

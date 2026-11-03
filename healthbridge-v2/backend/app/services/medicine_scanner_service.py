@@ -115,7 +115,7 @@ Return ONLY valid JSON.
 
     async with httpx.AsyncClient(timeout=25.0) as client:
         for model in candidate_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
             payload = {
                 "contents": [
                     {
@@ -136,7 +136,7 @@ Return ONLY valid JSON.
                 }
             }
             try:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, headers={"x-goog-api-key": gemini_key}, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
                     candidate_parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
