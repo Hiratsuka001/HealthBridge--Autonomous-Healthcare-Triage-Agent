@@ -59,11 +59,28 @@ async def calculate_vitals_endpoint(vitals: VitalsInput):
 
 @router.post("/vision")
 async def triage_vision(
-    file: UploadFile = File(...),
-    symptom_hint: str = Form("visible wound, burn, rash, or prescription")
+    request: Request,
+    file: Optional[UploadFile] = File(None),
+    symptom_hint: Optional[str] = Form("visible wound, burn, rash, or prescription")
 ):
-    image_bytes = await file.read()
-    analysis = await analyze_symptom_image(image_bytes, file.filename, symptom_hint)
+    import base64
+    content_type = request.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        b64 = body.get("image_base64", "")
+        image_bytes = base64.b64decode(b64) if b64 else b""
+        filename = body.get("filename", "upload.jpg")
+        hint = body.get("symptom_hint", "visible wound, burn, rash, or prescription")
+        return await analyze_symptom_image(image_bytes, filename, hint)
+
+    image_bytes = (await file.read()) if file else b""
+    fname = file.filename if file else "upload.jpg"
+    hint = symptom_hint or "visible wound, burn, rash, or prescription"
+    analysis = await analyze_symptom_image(image_bytes, fname, hint)
     return analysis
 
 @router.post("/scan-medicine")

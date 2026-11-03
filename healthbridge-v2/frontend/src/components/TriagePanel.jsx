@@ -888,7 +888,9 @@ export default function TriagePanel({
                   <div className="absolute inset-4 border-2 border-dashed border-emerald-500 bg-emerald-500/10 rounded-lg flex flex-col items-center justify-center pointer-events-none">
                     <Crosshair className="w-4 h-4 text-emerald-700 animate-spin" />
                     <span className="text-[9px] font-bold bg-white/95 text-emerald-800 px-2 py-0.5 rounded shadow-xs mt-1">
-                      {isBn ? "আঘাত চিহ্নিত • পরিষ্কার পানি দিয়ে ধুয়ে ফেলুন" : "ROI ISOLATED • COOL WITH WATER"}
+                      {isBn
+                        ? (visualData.sam_segmentation?.overlay_badge_bn || "আঘাত চিহ্নিত • ক্ষত পর্যবেক্ষণ")
+                        : (visualData.sam_segmentation?.overlay_badge_en || "ROI IDENTIFIED • CLINICAL EVALUATION")}
                     </span>
                   </div>
                 </div>

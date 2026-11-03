@@ -194,13 +194,30 @@ export async function sendTriageMessage(messages, visualContext = "", vitals = n
 
 export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash, or prescription") {
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("symptom_hint", symptomHint);
+    let imageBase64 = "";
+    if (file instanceof Blob || file instanceof File) {
+      imageBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result || "";
+          resolve(res.includes(",") ? res.split(",")[1] : res);
+        };
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const payload = {
+      image_base64: imageBase64,
+      mime_type: file?.type || "image/jpeg",
+      filename: file?.name || "upload.jpg",
+      symptom_hint: symptomHint,
+    };
 
     const res = await fetch(`${API_BASE}/triage/vision`, {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
