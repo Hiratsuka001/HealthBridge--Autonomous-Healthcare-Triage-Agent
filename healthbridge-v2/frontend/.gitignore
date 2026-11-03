@@ -13,6 +13,10 @@ lerna-debug.log*
 *.env
 !.env.example
 
+# Python
+venv/
+__pycache__/
+
 node_modules
 dist
 dist-ssr
