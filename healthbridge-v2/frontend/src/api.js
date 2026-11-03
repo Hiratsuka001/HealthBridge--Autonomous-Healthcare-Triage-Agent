@@ -192,24 +192,54 @@ export async function sendTriageMessage(messages, visualContext = "", vitals = n
   }
 }
 
-export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash, or prescription") {
-  try {
-    let imageBase64 = "";
-    if (file instanceof Blob || file instanceof File) {
-      imageBase64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const res = reader.result || "";
+async function compressAndEncodeImage(file, maxDimension = 1024) {
+  if (!(file instanceof Blob || file instanceof File)) return "";
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          resolve(dataUrl.split(",")[1]);
+        };
+        img.onerror = () => {
+          const res = e.target.result || "";
           resolve(res.includes(",") ? res.split(",")[1] : res);
         };
-        reader.onerror = () => resolve("");
-        reader.readAsDataURL(file);
-      });
-    }
+        img.src = e.target.result;
+      } catch (_) {
+        const res = e.target.result || "";
+        resolve(res.includes(",") ? res.split(",")[1] : res);
+      }
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash, or prescription") {
+  try {
+    const imageBase64 = await compressAndEncodeImage(file);
 
     const payload = {
       image_base64: imageBase64,
-      mime_type: file?.type || "image/jpeg",
+      mime_type: "image/jpeg",
       filename: file?.name || "upload.jpg",
       symptom_hint: symptomHint,
     };
@@ -229,22 +259,11 @@ export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash,
 
 export async function scanMedicineImage(file, context = {}) {
   try {
-    let imageBase64 = "";
-    if (file instanceof Blob || file instanceof File) {
-      imageBase64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const res = reader.result || "";
-          resolve(res.includes(",") ? res.split(",")[1] : res);
-        };
-        reader.onerror = () => resolve("");
-        reader.readAsDataURL(file);
-      });
-    }
+    const imageBase64 = await compressAndEncodeImage(file);
 
     const payload = {
       image_base64: imageBase64,
-      mime_type: file?.type || "image/jpeg",
+      mime_type: "image/jpeg",
       filename: file?.name || "upload.jpg",
       symptoms: context.symptoms || "",
       news2_score: context.news2Score ?? 0,

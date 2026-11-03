@@ -145,12 +145,49 @@ Return ONLY valid JSON.
                         # Parse JSON from response
                         parsed = json.loads(raw_text)
                         return parsed
+                elif resp.status_code == 429:
+                    print(f"[Gemini Medicine Scanner 429] Fast failover to Meta Multimodal AI.")
+                    break
                 elif resp.status_code in [404, 503]:
-                    # Model not available or temporarily busy, try next model in candidate list
                     continue
             except Exception as ex:
                 print(f"[HealthBridge Scanner] Gemini request error with {model}: {ex}")
                 continue
+
+    # 2. Meta Multimodal failover
+    meta_key = (os.getenv("LLM_API_KEY") or "").strip().strip("'\"")
+    meta_base = (os.getenv("LLM_BASE_URL") or "https://api.meta.ai/v1").strip().strip("'\"")
+
+    if meta_key and meta_key != "mock-key":
+        try:
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                meta_resp = await client.post(
+                    f"{meta_base}/chat/completions",
+                    headers={"Authorization": f"Bearer {meta_key}"},
+                    json={
+                        "model": "muse-spark-1.3",
+                        "messages": [
+                            {"role": "system", "content": prompt_instruction},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Analyze this medication strip or image in JSON format:"},
+                                    {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64_image}"}}
+                                ]
+                            }
+                        ],
+                        "temperature": 0.2,
+                        "response_format": {"type": "json_object"}
+                    }
+                )
+                if meta_resp.status_code == 200:
+                    data = meta_resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    parsed = json.loads(content) if isinstance(content, str) else content
+                    if parsed and (parsed.get("brand_name") or parsed.get("ocr_text_detected")):
+                        return parsed
+        except Exception as e:
+            print(f"[Meta Medicine Scanner Error] {e}")
 
     # Fallback to realistic mock if API fails or times out
     return _build_mock_scan(context)

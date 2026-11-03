@@ -198,6 +198,10 @@ Return ONLY valid JSON.
       } else {
         const errText = await response.text();
         console.warn(`[Gemini ${model} ${response.status}] ${errText}`);
+        if (response.status === 429) {
+          console.warn("[Gemini Quota Exceeded 429] Fast failover to Meta Multimodal AI.");
+          break;
+        }
       }
     } catch (modelErr) {
       console.warn(`[Gemini ${model} exception]`, modelErr.message);
@@ -207,7 +211,8 @@ Return ONLY valid JSON.
   // If Gemini fails or models busy, try Meta LLM if available
   const rawMetaKey = process.env.LLM_API_KEY || "";
   const metaKey = rawMetaKey.replace(/^['"]|['"]$/g, "").trim();
-  const metaBaseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const rawMetaBaseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const metaBaseUrl = rawMetaBaseUrl.replace(/^['"]|['"]$/g, "").trim();
 
   if (metaKey && metaKey !== "mock-key") {
     try {

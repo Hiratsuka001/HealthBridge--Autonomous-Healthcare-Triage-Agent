@@ -152,6 +152,9 @@ Return ONLY valid JSON.
           const parsed = JSON.parse(rawText);
           return res.status(200).json(parsed);
         }
+      } else if (response.status === 429) {
+        console.warn("[Gemini Vision 429 Quota Exceeded] Immediate failover to Meta Multimodal AI.");
+        break;
       }
     } catch (err) {
       console.warn(`[Gemini Vision ${model} exception]`, err.message);
@@ -161,7 +164,8 @@ Return ONLY valid JSON.
   // Failover to Meta Multimodal
   const rawMetaKey = process.env.LLM_API_KEY || "";
   const metaKey = rawMetaKey.replace(/^['"]|['"]$/g, "").trim();
-  const metaBaseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const rawMetaBaseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const metaBaseUrl = rawMetaBaseUrl.replace(/^['"]|['"]$/g, "").trim();
 
   if (metaKey && metaKey !== "mock-key") {
     try {

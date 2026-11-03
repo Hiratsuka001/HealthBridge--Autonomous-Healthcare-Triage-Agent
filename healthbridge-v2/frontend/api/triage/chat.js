@@ -21,7 +21,8 @@ export default async function handler(req, res) {
 
   const rawApiKey = process.env.LLM_API_KEY || "";
   const apiKey = rawApiKey.replace(/^['"]|['"]$/g, "").trim();
-  const baseUrl = (process.env.LLM_BASE_URL || "https://api.meta.ai/v1").trim();
+  const rawBaseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const baseUrl = rawBaseUrl.replace(/^['"]|['"]$/g, "").trim();
   const model = process.env.LLM_MODEL || "muse-spark-1.3";
 
   // Build clean normalized messages array
