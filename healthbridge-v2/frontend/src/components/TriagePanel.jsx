@@ -331,6 +331,11 @@ export default function TriagePanel({
             ? `✅ ট্রায়াজ সম্পন্ন হয়েছে (${res.current_severity})। নিকটস্থ সেবা কেন্দ্র ও পরামর্শ নিচে দেওয়া হলো।`
             : `✅ Triage complete (${res.current_severity}). Facility recommendations generated below.`;
         setMessages([...updatedMessages, { role: "assistant", content: completionMsg }]);
+      } else {
+        const defaultPrompt = isBn
+          ? "হ্যালো! আপনার শারীরিক সমস্যা বা লক্ষণগুলো অনুগ্রহ করে বলুন, আমি মূল্যায়ন করছি।"
+          : "Hello! Please describe what symptoms or discomfort you are experiencing.";
+        setMessages([...updatedMessages, { role: "assistant", content: defaultPrompt }]);
       }
 
       if (res.is_triage_complete) {

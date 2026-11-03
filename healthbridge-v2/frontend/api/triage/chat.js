@@ -40,7 +40,18 @@ CRITICAL INSTRUCTIONS:
    - What unasked information could flip the recommended urgency?
    - Has the system explicitly verified that information?
    - Safety Guardrail: If a critical variable remains unknown or ambiguous, default to escalating care rather than offering false reassurance.
-3. Speak to the patient in the language they used last (Bengali or English).${visual_context ? `\n\nSAM 3.1 VISUAL SYMPTOM CONTEXT:\n${visual_context}` : ""}`;
+3. Speak to the patient in the language they used last (Bengali or English).
+4. You MUST respond with a JSON object strictly following this structure:
+{
+  "next_question": "Your single next clinical question in patient's language, or null if triage is complete",
+  "current_severity": "Mild" | "Moderate" | "Severe",
+  "is_triage_complete": false | true,
+  "decision_flip_test": {
+    "missing_critical_info": "Critical unasked variable",
+    "has_verified_info": false,
+    "should_escalate": true
+  }
+}${visual_context ? `\n\nSAM 3.1 VISUAL SYMPTOM CONTEXT:\n${visual_context}` : ""}`;
 
     const apiMessages = [
       { role: "system", content: systemPrompt },
@@ -71,25 +82,46 @@ CRITICAL INSTRUCTIONS:
     const rawContent = data.choices?.[0]?.message?.content;
     const parsed = typeof rawContent === "string" ? JSON.parse(rawContent) : rawContent;
 
-    // Normalize property names in case the LLM used alternate keys
-    if (parsed.decision_flip_test) {
-      if (!parsed.decision_flip_test.missing_critical_info) {
-        parsed.decision_flip_test.missing_critical_info =
-          parsed.decision_flip_test.unasked_info_that_could_flip_urgency ||
-          parsed.decision_flip_test.missing_info ||
-          "Head trauma, loss of consciousness, or systemic danger signs";
-      }
-      if (parsed.decision_flip_test.has_verified_info === undefined) {
-        parsed.decision_flip_test.has_verified_info = false;
-      }
-      if (parsed.decision_flip_test.should_escalate === undefined) {
-        parsed.decision_flip_test.should_escalate = true;
-      }
-    }
+    const userMsgs = messages.filter((m) => m.role === "user");
+    const lastUserText = userMsgs[userMsgs.length - 1]?.content || "";
+    const isBn = /[\u0980-\u09FF]/.test(lastUserText);
+
+    // Normalize property names across any key variants the LLM chose
+    const rawFlip = parsed.decision_flip_test || parsed.Decision_Flip_Test || {};
+    parsed.decision_flip_test = {
+      missing_critical_info:
+        rawFlip.missing_critical_info ||
+        rawFlip.unasked_info_that_could_flip_urgency ||
+        rawFlip.missing_info ||
+        "Chief complaint and emergency red-flag screening",
+      has_verified_info: Boolean(rawFlip.has_verified_info || rawFlip.has_system_explicitly_verified),
+      should_escalate: rawFlip.should_escalate !== undefined ? Boolean(rawFlip.should_escalate) : true
+    };
 
     if (!parsed.current_severity) {
       parsed.current_severity = "Moderate";
     }
+
+    // Extract next_question robustly
+    let question =
+      parsed.next_question ||
+      parsed.question ||
+      parsed.nextQuestion ||
+      parsed.reply ||
+      parsed.response ||
+      parsed.message ||
+      null;
+
+    if (!question && !parsed.is_triage_complete) {
+      if (parsed.next_question_rationale) {
+        question = parsed.next_question_rationale;
+      } else {
+        question = isBn
+          ? "হ্যালো! আমি হেলথব্রিজ জরুরি ট্রায়াজ সহকারী। আপনার বা রোগীর কী কী শারীরিক সমস্যা দেখা দিচ্ছে বিস্তারিত বলুন।"
+          : "Hello! I am HealthBridge triage assistant. What medical symptoms or emergency are you experiencing?";
+      }
+    }
+    parsed.next_question = question;
 
     return res.status(200).json(parsed);
   } catch (err) {
