@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 from app.services.llm_engine import process_triage_turn
 from app.services.vision_service import analyze_symptom_image
+from app.services.medicine_scanner_service import scan_medicine_strip
 from app.services.clinical_calculator import calculate_news2, calculate_esi
 from app.schemas.triage import VitalsInput
 
@@ -64,3 +65,30 @@ async def triage_vision(
     image_bytes = await file.read()
     analysis = await analyze_symptom_image(image_bytes, file.filename, symptom_hint)
     return analysis
+
+@router.post("/scan-medicine")
+async def scan_medicine_endpoint(
+    file: UploadFile = File(...),
+    symptoms: Optional[str] = Form(""),
+    news2_score: Optional[int] = Form(0),
+    selected_region: Optional[str] = Form(""),
+    vitals_json: Optional[str] = Form("")
+):
+    import json
+    vitals_dict = {}
+    if vitals_json:
+        try:
+            vitals_dict = json.loads(vitals_json)
+        except Exception:
+            vitals_dict = {}
+
+    clinical_context = {
+        "symptoms": symptoms or "",
+        "news2_score": news2_score or 0,
+        "selected_region": selected_region or "",
+        "vitals": vitals_dict
+    }
+
+    image_bytes = await file.read()
+    report = await scan_medicine_strip(image_bytes, file.filename, clinical_context)
+    return report

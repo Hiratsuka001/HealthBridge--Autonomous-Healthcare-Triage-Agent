@@ -90,6 +90,58 @@ async def find_nearby_facilities(severity: str, lat: float = 23.7771, lng: float
     except Exception:
         return _fallback_facilities(severity)
 
+async def get_ambulance_route(
+    start_lat: float = 23.7258,
+    start_lng: float = 90.3976,
+    dest_lat: float = 23.7250,
+    dest_lng: float = 90.3975
+) -> dict:
+    """
+    Returns real road network waypoints and driving time from Geoapify Routing API.
+    Falls back to interpolated road points if offline or without key.
+    """
+    geo_key = os.getenv("GEOAPIFY_API_KEY", "")
+    if geo_key and not geo_key.startswith("your_"):
+        url = (
+            f"https://api.geoapify.com/v1/routing"
+            f"?waypoints={start_lat},{start_lng}|{dest_lat},{dest_lng}&mode=drive&apiKey={geo_key}"
+        )
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    data = res.json()
+                    features = data.get("features", [])
+                    if features:
+                        raw_coords = features[0].get("geometry", {}).get("coordinates", [[]])[0]
+                        props = features[0].get("properties", {})
+                        # Convert GeoJSON [lon, lat] to Leaflet [lat, lon]
+                        leaflet_coords = [[c[1], c[0]] for c in raw_coords]
+                        return {
+                            "coordinates": leaflet_coords,
+                            "distance_meters": props.get("distance", 1200),
+                            "time_seconds": props.get("time", 360),
+                            "source": "Geoapify Live Road Routing"
+                        }
+        except Exception as e:
+            print(f"[Geoapify Route Error] {e}")
+
+    # Fallback simulated road coordinates across Old Dhaka (Bakshibazar to DMCH)
+    steps = 15
+    sim_coords = [
+        [
+            start_lat + (dest_lat - start_lat) * (i / steps),
+            start_lng + (dest_lng - start_lng) * (i / steps)
+        ]
+        for i in range(steps + 1)
+    ]
+    return {
+        "coordinates": sim_coords,
+        "distance_meters": 1400,
+        "time_seconds": 420,
+        "source": "Simulated Route Fallback"
+    }
+
 def generate_soap_qr_packet(
     conversation_history: list,
     severity: str,

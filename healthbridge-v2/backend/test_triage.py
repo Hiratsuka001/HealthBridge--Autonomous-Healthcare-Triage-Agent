@@ -137,6 +137,18 @@ class TestHealthBridgeTriage(unittest.TestCase):
         self.assertIn("ESI Level 2", packet["soap_note"]["esi_level"])
         self.assertIn("HR 110 bpm", packet["soap_note"]["objective"])
 
+    def test_medicine_scanner_contraindication_detection(self):
+        """Verifies medicine scanner detects Aspirin/Dengue contraindication."""
+        from app.services.medicine_scanner_service import scan_medicine_strip
+        ctx = {"symptoms": "High fever for 3 days and skin petechiae", "selected_region": "Head & Fever"}
+        dummy_bytes = b"fake_blister_image_bytes"
+        report = asyncio.run(scan_medicine_strip(dummy_bytes, "ecosprin.jpg", ctx))
+        self.assertIn("brand_name", report)
+        self.assertIn("generic_name", report)
+        self.assertTrue(report.get("is_contraindicated"))
+        self.assertEqual(report.get("contraindication_severity"), "CRITICAL")
+        self.assertIn("bengali_patient_instruction", report)
+
 
 if __name__ == "__main__":
     unittest.main()

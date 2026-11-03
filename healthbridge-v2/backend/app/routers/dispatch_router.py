@@ -4,7 +4,8 @@ from typing import List, Dict, Optional, Any
 from app.services.dispatch_service import (
     find_nearby_facilities,
     generate_soap_qr_packet,
-    trigger_ambulance_voice_dispatch
+    trigger_ambulance_voice_dispatch,
+    get_ambulance_route
 )
 
 router = APIRouter(prefix="/api/dispatch", tags=["Routing, Ambulance & ER QR"])
@@ -41,4 +42,14 @@ async def execute_dispatch_and_handoff(req: DispatchRequest):
         "er_handoff_packet": qr_packet,
         "autonomous_ambulance_call": ambulance_dispatch
     }
+
+@router.get("/route")
+async def get_route(
+    start_lat: float = 23.7258,
+    start_lng: float = 90.3976,
+    dest_lat: float = 23.7250,
+    dest_lng: float = 90.3975
+):
+    route = await get_ambulance_route(start_lat, start_lng, dest_lat, dest_lng)
+    return route
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import DispatchMap from "./DispatchMap";
 import {
   Activity,
   Clock,
@@ -10,12 +11,17 @@ import {
   Copy,
   Check,
   Bell,
+  Navigation,
+  Pill,
+  ShieldAlert,
 } from "lucide-react";
 
-export default function HospitalERDashboard({ activeCase = null, onSelectCase }) {
+export default function HospitalERDashboard({ activeCase = null, onSelectCase, lang = "bn" }) {
+  const isBn = lang === "bn";
   const [selectedCaseId, setSelectedCaseId] = useState("HB-8092");
   const [isAccepted, setIsAccepted] = useState(false);
   const [copiedFhir, setCopiedFhir] = useState(false);
+  const [activeTab, setActiveTab] = useState("dossier"); // 'dossier' | 'map'
   const [checklist, setChecklist] = useState({
     ecg: true,
     oxygen: true,
@@ -28,7 +34,6 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
     setChecklist((prev) => ({ ...prev, [item]: !prev[item] }));
   };
 
-  // Mock queue + dynamically synced active case from Patient View
   const liveCase = activeCase || {
     patientId: "HB-8092",
     etaMinutes: 7,
@@ -53,6 +58,22 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
     ambulanceId: "AMB-DH-304",
     landmark: "Near Shaheed Minar / Bakshibazar Gate",
     timeReported: "3 mins ago",
+    medications: activeCase?.medications || [
+      {
+        brand_name: "Ecosprin 75",
+        generic_name: "Aspirin (Acetylsalicylic Acid)",
+        strength: "75 mg",
+        drug_class: "NSAID / Antiplatelet",
+        manufacturer: "Square Pharmaceuticals Ltd.",
+        is_contraindicated: true,
+        contraindication_severity: "CRITICAL",
+        clinical_alert_message:
+          "CRITICAL DANGER: Pre-hospital ingestion of Aspirin. Risk of internal hemorrhage & irreversible platelet inhibition.",
+        bengali_patient_instruction: "রোগী হাসপাতালে পৌঁছানোর আগে অ্যাসপিরিন খাওয়া বন্ধ রাখা হয়েছে।",
+        safe_alternative: "Paracetamol 500mg IV on arrival.",
+        er_prearrival_action: "Stat CBC, Platelet count, PT/INR blood draw ready on arrival.",
+      },
+    ],
   };
 
   const queue = [
@@ -124,6 +145,13 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
       news2Score: currentCase.news2Score,
       decisionFlipGuardrail: currentCase.decisionFlipTrigger,
       vitals: currentCase.vitals,
+      scannedMedications: (currentCase.medications || []).map((m) => ({
+        brand: m.brand_name,
+        generic: m.generic_name,
+        strength: m.strength,
+        contraindicated: m.is_contraindicated,
+        alert: m.clinical_alert_message,
+      })),
     },
   };
 
@@ -136,40 +164,51 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
   return (
     <div className="space-y-6 text-slate-100">
       {/* Top Hospital ER Status Strip */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="bg-red-600/20 border border-red-500/40 p-2.5 rounded-xl text-red-400">
+      <div className="bg-[#0f1420] border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3.5">
+          <div className="bg-red-600/20 border border-red-500/40 p-3 rounded-xl text-red-400">
             <Stethoscope className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-white">
-                Dhaka Medical College Hospital — Emergency & Trauma Centre
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-base font-extrabold text-white tracking-tight">
+                {isBn
+                  ? "ঢাকা মেডিকেল কলেজ হাসপাতাল — ইমার্জেন্সি ও ট্রমা সেন্টার"
+                  : "Dhaka Medical College Hospital — Emergency & Trauma Centre"}
               </h2>
-              <span className="text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider animate-pulse flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span> Live Trauma Stream
+              <span className="text-[10px] bg-red-950 text-red-300 border border-red-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span>
+                <span>{isBn ? "লাইভ ট্রমা স্ট্রিম" : "Live Trauma Stream"}</span>
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Autonomous Inbound Pre-Arrival Queue • Direct-to-Bay Resuscitation Handoff
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isBn
+                ? "ইনবাউন্ড প্রি-অ্যারাইভাল কিউ • সরাসরি রিসাসিটেশন বে বরাদ্দ"
+                : "Autonomous Inbound Pre-Arrival Queue • Direct-to-Bay Resuscitation Handoff"}
             </p>
           </div>
         </div>
 
         {/* ER Capacity Metrics */}
-        <div className="flex items-center gap-4 text-xs">
-          <div className="bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 text-center">
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Trauma Bed Capacity</span>
+        <div className="flex items-center gap-3 sm:gap-4 text-xs">
+          <div className="bg-[#07090e] px-3.5 py-2 rounded-xl border border-slate-800 text-center">
+            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+              {isBn ? "ট্রমা বে ধারণক্ষমতা" : "Trauma Bed Capacity"}
+            </span>
             <span className="text-amber-400 font-bold font-mono text-sm">18 / 22 (82%)</span>
           </div>
-          <div className="bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 text-center">
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Inbound Ambulances</span>
+          <div className="bg-[#07090e] px-3.5 py-2 rounded-xl border border-slate-800 text-center">
+            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+              {isBn ? "আগত অ্যাম্বুলেন্স" : "Inbound Ambulances"}
+            </span>
             <span className="text-red-400 font-bold font-mono text-sm flex items-center justify-center gap-1">
               <Activity className="w-3.5 h-3.5 animate-bounce" /> 2 Active
             </span>
           </div>
-          <div className="bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 text-center">
-            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Avg Door-to-Doctor</span>
+          <div className="bg-[#07090e] px-3.5 py-2 rounded-xl border border-slate-800 text-center">
+            <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+              {isBn ? "গড় ইনটেক সময়" : "Avg Door-to-Doctor"}
+            </span>
             <span className="text-emerald-400 font-bold font-mono text-sm">3.8 Mins</span>
           </div>
         </div>
@@ -179,12 +218,13 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
         {/* Left Column: Live Inbound Queue & Bay Allocator (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Inbound Ambulance Cards */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 shadow-xl">
+          <div className="bg-[#0f1420] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Bell className="w-3.5 h-3.5 text-red-400" /> Inbound Pre-Arrival Queue ({queue.length})
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-red-400" />
+                <span>{isBn ? "ইনবাউন্ড প্রি-অ্যারাইভাল কিউ" : "Inbound Pre-Arrival Queue"} ({queue.length})</span>
               </h3>
-              <span className="text-[10px] text-slate-500 font-mono">Live Telemetry</span>
+              <span className="text-[10px] text-teal-400 font-mono">Live Telemetry</span>
             </div>
 
             <div className="space-y-2.5">
@@ -201,15 +241,17 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
                     }}
                     className={`p-3.5 rounded-xl border cursor-pointer transition flex flex-col gap-2 ${
                       isSelected
-                        ? "bg-slate-800/90 border-indigo-500 shadow-md ring-1 ring-indigo-500/40"
-                        : "bg-slate-950/70 border-slate-800 hover:border-slate-700"
+                        ? "bg-slate-800/90 border-teal-500 shadow-md ring-1 ring-teal-500/40"
+                        : "bg-[#07090e]/70 border-slate-800 hover:border-slate-700"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          isHighUrgency ? "bg-red-600 text-white" : "bg-amber-500 text-slate-950"
-                        }`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            isHighUrgency ? "bg-red-600 text-white" : "bg-amber-500 text-slate-950"
+                          }`}
+                        >
                           ESI Level {c.esiLevel}
                         </span>
                         <span className="text-xs font-bold text-white font-mono">{c.patientId}</span>
@@ -228,7 +270,7 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
                     </p>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                      <span>Target: <strong className="text-indigo-300">{c.assignedBay}</strong></span>
+                      <span>Target: <strong className="text-teal-300">{c.assignedBay}</strong></span>
                       <span className="text-amber-300 font-mono">NEWS2: {c.news2Score}</span>
                     </div>
                   </div>
@@ -238,17 +280,18 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
           </div>
 
           {/* Real-Time Bay Allocation Grid */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 shadow-xl">
+          <div className="bg-[#0f1420] border border-slate-800 rounded-2xl p-4 space-y-3 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Bed className="w-3.5 h-3.5 text-indigo-400" /> ER Bay Allocation Status
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Bed className="w-3.5 h-3.5 text-teal-400" />
+                <span>{isBn ? "ইমার্জেন্সি বে বরাদ্দ ও অবস্থা" : "ER Bay Allocation Status"}</span>
               </h3>
               <span className="text-[10px] text-emerald-400">Auto-Assigned via ESI</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               {/* Resus Bays (ESI 1-2) */}
-              <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-500/40 space-y-1">
+              <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-red-300 text-[11px]">Resus Bay 1</span>
                   <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.2 rounded font-bold">OCCUPIED</span>
@@ -256,16 +299,20 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
                 <p className="text-[10px] text-slate-400">Cardiac Arrest (Code Blue)</p>
               </div>
 
-              <div className={`p-2.5 rounded-lg border space-y-1 transition ${
-                isAccepted
-                  ? "bg-emerald-950/40 border-emerald-500 text-emerald-200"
-                  : "bg-red-900/40 border-red-500 text-white animate-pulse"
-              }`}>
+              <div
+                className={`p-2.5 rounded-xl border space-y-1 transition ${
+                  isAccepted
+                    ? "bg-emerald-950/40 border-emerald-500 text-emerald-200"
+                    : "bg-red-900/40 border-red-500 text-white animate-pulse"
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-[11px]">Resus Bay 2</span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                    isAccepted ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
-                  }`}>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                      isAccepted ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+                    }`}
+                  >
                     {isAccepted ? "CONFIRMED" : "RESERVED"}
                   </span>
                 </div>
@@ -275,7 +322,7 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
               </div>
 
               {/* Acute Bays (ESI 3) */}
-              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1">
+              <div className="p-2.5 rounded-xl bg-[#07090e]/80 border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-300 text-[11px]">Acute Bay 3</span>
                   <span className="text-[9px] bg-emerald-600/30 text-emerald-300 px-1.5 py-0.2 rounded font-bold">AVAILABLE</span>
@@ -283,7 +330,7 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
                 <p className="text-[10px] text-slate-500">Ready for Bedding</p>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/40 space-y-1">
+              <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/40 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-amber-300 text-[11px]">Acute Bay 4</span>
                   <span className="text-[9px] bg-amber-500 text-slate-950 px-1.5 py-0.2 rounded font-bold">RESERVED</span>
@@ -292,7 +339,7 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
               </div>
 
               {/* Fast Track / Ambulatory Bays (ESI 4-5) */}
-              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1">
+              <div className="p-2.5 rounded-xl bg-[#07090e]/80 border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-300 text-[11px]">Fast Track 5</span>
                   <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">CLEANING</span>
@@ -300,7 +347,7 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
                 <p className="text-[10px] text-slate-500">Turnaround in 5 mins</p>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1">
+              <div className="p-2.5 rounded-xl bg-[#07090e]/80 border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-300 text-[11px]">Fast Track 6</span>
                   <span className="text-[9px] bg-emerald-600/30 text-emerald-300 px-1.5 py-0.2 rounded font-bold">AVAILABLE</span>
@@ -313,15 +360,15 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
 
         {/* Right Column: Case Clinical Dossier & Nurse Orders (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+          <div className="bg-[#0f1420] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
             {/* Dossier Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    Inbound Case Dossier: {currentCase.patientId}
+                    {isBn ? "রোগীর ক্লিনিক্যাল ডসিয়ার:" : "Inbound Case Dossier:"} {currentCase.patientId}
                   </h3>
-                  <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2.5 py-0.5 rounded-full font-mono font-medium">
+                  <span className="text-xs bg-teal-500/20 text-teal-300 border border-teal-500/40 px-2.5 py-0.5 rounded-full font-mono font-medium">
                     {currentCase.assignedBay}
                   </span>
                 </div>
@@ -331,24 +378,47 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
               </div>
 
               <div className="flex items-center gap-2">
+                <div className="flex items-center bg-[#07090e] p-1 rounded-xl border border-slate-800 text-xs">
+                  <button
+                    onClick={() => setActiveTab("dossier")}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                      activeTab === "dossier" ? "bg-teal-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    SBAR Dossier
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("map")}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
+                      activeTab === "map" ? "bg-red-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Navigation className="w-3.5 h-3.5" /> Inbound Map
+                  </button>
+                </div>
+
                 <button
                   onClick={handleCopyFhir}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center gap-1.5"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5"
                 >
                   {copiedFhir ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedFhir ? "FHIR JSON Copied" : "Copy FHIR Packet"}
+                  <span>{copiedFhir ? "FHIR Copied" : "Copy FHIR"}</span>
                 </button>
               </div>
             </div>
 
             {/* Inbound Alert Banner */}
-            <div className={`p-3 rounded-lg border flex items-center justify-between gap-3 text-xs ${
-              isAccepted
-                ? "bg-emerald-950/50 border-emerald-500 text-emerald-200"
-                : "bg-red-950/50 border-red-500 text-red-200"
-            }`}>
+            <div
+              className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+                isAccepted
+                  ? "bg-emerald-950/50 border-emerald-500 text-emerald-200"
+                  : "bg-red-950/50 border-red-500 text-red-200"
+              }`}
+            >
               <div className="flex items-center gap-2.5">
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${isAccepted ? "text-emerald-400" : "text-red-400 animate-bounce"}`} />
+                <AlertTriangle
+                  className={`w-4 h-4 shrink-0 ${isAccepted ? "text-emerald-400" : "text-red-400 animate-bounce"}`}
+                />
                 <span>
                   <strong>{isAccepted ? "Case Acknowledged & Bay Reserved:" : "Inbound Acute Triage Escalation:"}</strong>{" "}
                   {currentCase.chiefComplaint}. Patient landmark: {currentCase.landmark}.
@@ -359,139 +429,206 @@ export default function HospitalERDashboard({ activeCase = null, onSelectCase })
               </span>
             </div>
 
-            {/* SBAR Clinical Handoff Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {/* Situation & Background */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
-                <span className="font-bold text-indigo-400 uppercase tracking-wider block text-[10px]">
-                  1. Situation & Chief Complaint (S)
-                </span>
-                <p className="text-white font-medium">{currentCase.chiefComplaint}</p>
-                <p className="text-slate-400 italic">"{currentCase.chiefComplaintBn}"</p>
-                <div className="pt-1.5 border-t border-slate-800 text-[11px] text-slate-400">
-                  <span className="text-slate-500">Ambulance GPS:</span> Near Shaheed Minar / Bakshibazar Gate
-                </div>
+            {/* Main Content Area: SBAR Dossier vs Inbound Telemetry Map */}
+            {activeTab === "map" ? (
+              <div className="pt-1">
+                <DispatchMap
+                  patientCoords={{ lat: 23.7258, lng: 90.3976 }}
+                  severity={currentCase.severity}
+                  autoAnimate={true}
+                />
               </div>
+            ) : (
+              <>
+                {/* SBAR Clinical Handoff Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {/* Situation & Background */}
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <span className="font-bold text-teal-400 uppercase tracking-wider block text-[10px]">
+                      1. Situation & Chief Complaint (S)
+                    </span>
+                    <p className="text-white font-medium">{currentCase.chiefComplaint}</p>
+                    <p className="text-slate-400 italic">"{currentCase.chiefComplaintBn}"</p>
+                    <div className="pt-1.5 border-t border-slate-800 text-[11px] text-slate-400">
+                      <span className="text-slate-500">Ambulance GPS:</span> Near Shaheed Minar / Bakshibazar Gate
+                    </div>
+                  </div>
 
-              {/* Objective Vitals */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-indigo-400 uppercase tracking-wider block text-[10px]">
-                    2. Objective Field Vitals (O)
+                  {/* Objective Vitals */}
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-teal-400 uppercase tracking-wider block text-[10px]">
+                        2. Objective Field Vitals (O)
+                      </span>
+                      <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded font-mono">
+                        NEWS2: {currentCase.news2Score}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-center font-mono">
+                      <div className="bg-[#0f1420] p-1.5 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-500 block">HEART RATE</span>
+                        <span className="text-red-400 font-bold">{currentCase.vitals.heartRate} bpm</span>
+                      </div>
+                      <div className="bg-[#0f1420] p-1.5 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-500 block">BLOOD PRESS</span>
+                        <span className="text-white font-bold">
+                          {currentCase.vitals.systolicBp}/{currentCase.vitals.diastolicBp}
+                        </span>
+                      </div>
+                      <div className="bg-[#0f1420] p-1.5 rounded-lg border border-slate-800">
+                        <span className="text-[9px] text-slate-500 block">SpO2</span>
+                        <span className="text-cyan-400 font-bold">{currentCase.vitals.spo2}%</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">
+                      <div className="text-slate-400">RR: {currentCase.vitals.respiratoryRate}/min</div>
+                      <div className="text-slate-400">Temp: {currentCase.vitals.tempCelsius}°C</div>
+                      <div className="text-slate-400">AVPU: {currentCase.vitals.avpu}</div>
+                    </div>
+                  </div>
+
+                  {/* Assessment */}
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                    <span className="font-bold text-teal-400 uppercase tracking-wider block text-[10px]">
+                      3. Assessment & Clinical Triggers (A)
+                    </span>
+                    <p className="text-amber-300 font-medium">{currentCase.decisionFlipTrigger}</p>
+                    <p className="text-[11px] text-slate-400">
+                      Safety Protocol: Emergency care escalated directly. Stroke & Cardiac protocol active.
+                    </p>
+                  </div>
+
+                  {/* Pre-Arrival Recommendation / Orders */}
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                    <span className="font-bold text-teal-400 uppercase tracking-wider block text-[10px]">
+                      4. Plan & ER Pathway (P)
+                    </span>
+                    <p className="text-emerald-300 font-medium">
+                      Immediate ER Triage Bypass ➔ Direct to {currentCase.assignedBay}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Zero-Wait QR code scanned: Auto-assigns resuscitation team without desk delay.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Scanned Pre-Hospital Medications & Contraindication Review */}
+                {currentCase.medications && currentCase.medications.length > 0 && (
+                  <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <Pill className="w-4 h-4 text-purple-400" />
+                        <span>Field Scanned Medications & Contraindications</span>
+                      </span>
+                      <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-mono">
+                        {currentCase.medications.length} drug(s) reported
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {currentCase.medications.map((med, i) => (
+                        <div
+                          key={i}
+                          className={`p-2.5 rounded-xl border text-xs flex flex-col md:flex-row md:items-center justify-between gap-2.5 ${
+                            med.is_contraindicated
+                              ? "bg-red-950/40 border-red-500/60 text-red-200"
+                              : "bg-[#0f1420] border-slate-800 text-slate-200"
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white text-xs">{med.brand_name}</span>
+                              <span className="text-teal-300 font-mono text-[11px]">
+                                ({med.generic_name} {med.strength})
+                              </span>
+                              {med.is_contraindicated ? (
+                                <span className="bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <ShieldAlert className="w-2.5 h-2.5" /> CONTRAINDICATED
+                                </span>
+                              ) : (
+                                <span className="bg-emerald-600/30 text-emerald-300 text-[9px] font-semibold px-1.5 py-0.5 rounded">
+                                  SAFE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-300">{med.clinical_alert_message}</p>
+                          </div>
+
+                          {med.er_prearrival_action && (
+                            <div className="shrink-0 bg-[#07090e] px-2.5 py-1.5 rounded-lg border border-slate-800 text-[10px] text-amber-300 font-mono">
+                              <strong>TRAUMA BAY STAT:</strong> {med.er_prearrival_action}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Nurse Pre-Arrival Preparedness Checklist */}
+                <div className="bg-[#07090e]/80 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Nurse Pre-Arrival Bay Preparation Checklist</span>
                   </span>
-                  <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded font-mono">
-                    NEWS2: {currentCase.news2Score}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5 text-center font-mono">
-                  <div className="bg-slate-900 p-1.5 rounded border border-slate-800">
-                    <span className="text-[9px] text-slate-500 block">HEART RATE</span>
-                    <span className="text-red-400 font-bold">{currentCase.vitals.heartRate} bpm</span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label
+                      onClick={() => toggleCheck("ecg")}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center gap-2.5 ${
+                        checklist.ecg ? "bg-[#0f1420] border-teal-500/70 text-white" : "bg-[#07090e] border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <input type="checkbox" checked={checklist.ecg} readOnly className="rounded accent-teal-500" />
+                      <span>12-Lead ECG Machine in {currentCase.assignedBay}</span>
+                    </label>
+
+                    <label
+                      onClick={() => toggleCheck("oxygen")}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center gap-2.5 ${
+                        checklist.oxygen ? "bg-[#0f1420] border-teal-500/70 text-white" : "bg-[#07090e] border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <input type="checkbox" checked={checklist.oxygen} readOnly className="rounded accent-teal-500" />
+                      <span>High-Flow O2 & Airway Kit on Standby</span>
+                    </label>
+
+                    <label
+                      onClick={() => toggleCheck("ivAccess")}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center gap-2.5 ${
+                        checklist.ivAccess ? "bg-[#0f1420] border-teal-500/70 text-white" : "bg-[#07090e] border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <input type="checkbox" checked={checklist.ivAccess} readOnly className="rounded accent-teal-500" />
+                      <span>2x 18G Large-Bore IV Cannulas prepped</span>
+                    </label>
+
+                    <label
+                      onClick={() => toggleCheck("cardiacStat")}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center gap-2.5 ${
+                        checklist.cardiacStat ? "bg-[#0f1420] border-teal-500/70 text-white" : "bg-[#07090e] border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <input type="checkbox" checked={checklist.cardiacStat} readOnly className="rounded accent-teal-500" />
+                      <span>Stat Troponin-I & CBC Blood Tubes ready</span>
+                    </label>
                   </div>
-                  <div className="bg-slate-900 p-1.5 rounded border border-slate-800">
-                    <span className="text-[9px] text-slate-500 block">BLOOD PRESS</span>
-                    <span className="text-white font-bold">{currentCase.vitals.systolicBp}/{currentCase.vitals.diastolicBp}</span>
-                  </div>
-                  <div className="bg-slate-900 p-1.5 rounded border border-slate-800">
-                    <span className="text-[9px] text-slate-500 block">SpO2</span>
-                    <span className="text-cyan-400 font-bold">{currentCase.vitals.spo2}%</span>
-                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">
-                  <div className="text-slate-400">RR: {currentCase.vitals.respiratoryRate}/min</div>
-                  <div className="text-slate-400">Temp: {currentCase.vitals.tempCelsius}°C</div>
-                  <div className="text-slate-400">AVPU: {currentCase.vitals.avpu}</div>
-                </div>
-              </div>
-
-              {/* Assessment / Decision Flip Evidence */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <span className="font-bold text-indigo-400 uppercase tracking-wider block text-[10px]">
-                  3. Assessment & Decision Flip (A)
-                </span>
-                <p className="text-amber-300 font-medium">
-                  {currentCase.decisionFlipTrigger}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Guardrail verified: Emergency care escalated rather than delayed. Stroke/Cardiac protocol active.
-                </p>
-              </div>
-
-              {/* Pre-Arrival Recommendation / Orders */}
-              <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 space-y-1.5">
-                <span className="font-bold text-indigo-400 uppercase tracking-wider block text-[10px]">
-                  4. Plan & ER Pathway (P)
-                </span>
-                <p className="text-emerald-300 font-medium">
-                  Immediate ER Triage Bypass ➔ Direct to {currentCase.assignedBay}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  Zero-Wait QR code scanned: Auto-assigns resuscitation team without registration desk delay.
-                </p>
-              </div>
-            </div>
-
-            {/* Nurse Pre-Arrival Preparedness Checklist */}
-            <div className="bg-slate-950/80 p-3.5 rounded-lg border border-slate-800 space-y-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Nurse Pre-Arrival Bay Preparation Checklist
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <label
-                  onClick={() => toggleCheck("ecg")}
-                  className={`p-2 rounded border cursor-pointer transition flex items-center gap-2 ${
-                    checklist.ecg ? "bg-slate-900 border-indigo-500/70 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
-                  }`}
-                >
-                  <input type="checkbox" checked={checklist.ecg} readOnly className="rounded accent-indigo-500" />
-                  <span>12-Lead ECG Machine in {currentCase.assignedBay}</span>
-                </label>
-
-                <label
-                  onClick={() => toggleCheck("oxygen")}
-                  className={`p-2 rounded border cursor-pointer transition flex items-center gap-2 ${
-                    checklist.oxygen ? "bg-slate-900 border-indigo-500/70 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
-                  }`}
-                >
-                  <input type="checkbox" checked={checklist.oxygen} readOnly className="rounded accent-indigo-500" />
-                  <span>High-Flow O2 & Airway Kit on Standby</span>
-                </label>
-
-                <label
-                  onClick={() => toggleCheck("ivAccess")}
-                  className={`p-2 rounded border cursor-pointer transition flex items-center gap-2 ${
-                    checklist.ivAccess ? "bg-slate-900 border-indigo-500/70 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
-                  }`}
-                >
-                  <input type="checkbox" checked={checklist.ivAccess} readOnly className="rounded accent-indigo-500" />
-                  <span>2x 18G Large-Bore IV Cannulas prepped</span>
-                </label>
-
-                <label
-                  onClick={() => toggleCheck("cardiacStat")}
-                  className={`p-2 rounded border cursor-pointer transition flex items-center gap-2 ${
-                    checklist.cardiacStat ? "bg-slate-900 border-indigo-500/70 text-white" : "bg-slate-950 border-slate-800 text-slate-400"
-                  }`}
-                >
-                  <input type="checkbox" checked={checklist.cardiacStat} readOnly className="rounded accent-indigo-500" />
-                  <span>Stat Troponin-I & CBC Blood Tubes ready</span>
-                </label>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* One-Click Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800">
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Zero-Wait Protocol: Patient bypasses triage desk on arrival.</span>
+                <span>Zero-Wait Protocol: Patient bypasses registration desk directly to bay.</span>
               </div>
 
               <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => setIsAccepted(true)}
                   disabled={isAccepted}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-lg ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-lg ${
                     isAccepted
                       ? "bg-emerald-600 text-white cursor-default"
                       : "bg-red-600 hover:bg-red-500 text-white"
