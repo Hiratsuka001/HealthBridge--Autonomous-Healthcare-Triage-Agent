@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { sendTriageMessage, uploadSymptomImage, executeDispatch } from "../api";
 import { startVoiceRecognition, speakText } from "../utils/speech";
 import {
@@ -24,6 +24,27 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
   const [dispatchData, setDispatchData] = useState(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceLang, setVoiceLang] = useState("bn-BD");
+  const [coords, setCoords] = useState(null);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}, // fallback to server default coordinates if permission denied
+        { timeout: 5000 }
+      );
+    }
+  }, []);
+
+  const handleReset = () => {
+    setMessages([]);
+    setInput("");
+    setLoading(false);
+    setTriageState(null);
+    setVisualData(null);
+    setImagePreviewUrl(null);
+    setDispatchData(null);
+  };
 
   const handleSend = async (customText = null) => {
     const textToSend = customText ?? input;
@@ -43,13 +64,20 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
 
       if (res.next_question) {
         setMessages([...updatedMessages, { role: "assistant", content: res.next_question }]);
+      } else if (res.is_triage_complete) {
+        const completionMsg =
+          res.current_severity === "Severe"
+            ? "⚠️ জরুরি সতর্কতা: ট্রায়াজ সম্পন্ন হয়েছে (Severe)। অ্যাম্বুলেন্স ডিসপ্যাচ ও ইমার্জেন্সি রিপোর্ট নিচে তৈরি করা হয়েছে। / Emergency: Severe case detected. Immediate dispatch initiated below."
+            : `✅ ট্রায়াজ সম্পন্ন হয়েছে (${res.current_severity})। নিকটস্থ সেবা কেন্দ্র ও ব্যবস্থাপত্র নিচে দেখুন। / Triage complete (${res.current_severity}). Facility recommendations generated below.`;
+        setMessages([...updatedMessages, { role: "assistant", content: completionMsg }]);
       }
 
       if (res.is_triage_complete) {
         const dispatchRes = await executeDispatch(
           updatedMessages,
           res.current_severity,
-          res.decision_flip_test?.missing_critical_info || "Verified pathway"
+          res.decision_flip_test?.missing_critical_info || "Verified pathway",
+          coords
         );
         setDispatchData(dispatchRes);
 
@@ -107,11 +135,22 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
           <h2 className="font-bold text-lg text-white">{title}</h2>
           <p className="text-xs text-slate-400">Muse Spark + WHO Protocol RAG + SAM 3.1</p>
         </div>
-        {triageState && (
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${severityBadge(triageState.current_severity)}`}>
-            {triageState.current_severity.toUpperCase()}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {triageState && (
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${severityBadge(triageState.current_severity)}`}>
+              {triageState.current_severity.toUpperCase()}
+            </span>
+          )}
+          {(triageState || messages.length > 0) && (
+            <button
+              onClick={handleReset}
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition"
+              title="Reset session"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Quick Demo Presets */}
@@ -243,13 +282,15 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Speak or type in বাংলা / English..."
-          className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+          onKeyDown={(e) => e.key === "Enter" && !triageState?.is_triage_complete && handleSend()}
+          placeholder={triageState?.is_triage_complete ? "Triage complete / ট্রায়াজ সম্পন্ন (Reset to start over)" : "Speak or type in বাংলা / English..."}
+          disabled={loading || triageState?.is_triage_complete}
+          className="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
           onClick={() => handleSend()}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg flex items-center gap-1 text-sm font-medium transition"
+          disabled={loading || triageState?.is_triage_complete}
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-lg flex items-center gap-1 text-sm font-medium transition"
         >
           <Send className="w-4 h-4" />
         </button>
@@ -285,8 +326,15 @@ export default function TriagePanel({ title = "Patient Triage Session", presetSc
           {/* Recommended Facilities + QR Code Side-by-Side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs space-y-2">
-              <div className="font-semibold text-indigo-400 flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5" /> Smart Facility Routing
+              <div className="font-semibold text-indigo-400 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" /> Smart Facility Routing
+                </span>
+                {coords && (
+                  <span className="text-[10px] text-emerald-400 font-normal">
+                    GPS: {coords.lat.toFixed(3)}, {coords.lng.toFixed(3)}
+                  </span>
+                )}
               </div>
               {dispatchData.recommended_facilities?.map((f, i) => (
                 <div key={i} className="border-b border-slate-800 last:border-0 pb-1.5">

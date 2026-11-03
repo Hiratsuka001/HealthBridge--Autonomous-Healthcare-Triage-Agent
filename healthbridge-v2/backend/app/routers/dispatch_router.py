@@ -23,7 +23,7 @@ async def execute_dispatch_and_handoff(req: DispatchRequest):
 
     ambulance_dispatch = None
     if req.severity.lower() == "severe" and facilities:
-        ambulance_dispatch = trigger_ambulance_voice_dispatch(
+        ambulance_dispatch = await trigger_ambulance_voice_dispatch(
             facilities[0], qr_packet["soap_note"], req.lat, req.lng
         )
 

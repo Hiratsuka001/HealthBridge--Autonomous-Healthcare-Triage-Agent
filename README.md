@@ -51,7 +51,7 @@ npm run dev
 
 ### 3. Switching Between Meta API, Open-Weights, and Fallback Mode
 Edit `backend/.env`:
-- Set `AI_PROVIDER_MODE="meta"` and add your `LLM_API_KEY` to run live against Meta Model API (`https://api.dev.meta.ai/v1`).
+- Set `AI_PROVIDER_MODE="meta"` and add your `LLM_API_KEY` to run live against Meta Model API (`https://api.meta.ai/v1`).
 - Set `AI_PROVIDER_MODE="mock"` (or let auto-failover handle expired credits) to run the deterministic split-screen demo offline with zero API cost.
 
 ---

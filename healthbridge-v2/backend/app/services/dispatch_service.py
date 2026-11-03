@@ -125,10 +125,11 @@ def generate_soap_qr_packet(conversation_history: list, severity: str, decision_
         "qr_code_data_url": f"data:image/png;base64,{qr_base64}"
     }
 
-def trigger_ambulance_voice_dispatch(facility: dict, soap_note: dict, lat: float, lng: float) -> dict:
+async def trigger_ambulance_voice_dispatch(facility: dict, soap_note: dict, lat: float, lng: float) -> dict:
     """
     Generates the Bengali voice script and triggers (or simulates in mock mode)
     the automated Twilio voice call to the ambulance dispatcher with GPS landmarks.
+    shortcut: direct Twilio REST POST without the twilio SDK package; upgrade to official SDK if adding status webhooks
     """
     landmark = facility.get("landmark", "Near main road")
     voice_script_bn = (
@@ -144,10 +145,44 @@ def trigger_ambulance_voice_dispatch(facility: dict, soap_note: dict, lat: float
         f"Routing to {facility['name']}."
     )
 
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    from_phone = os.getenv("TWILIO_FROM_PHONE", "")
+    to_phone = os.getenv("EMERGENCY_DISPATCH_PHONE", facility.get("phone", "+8801711000999"))
+    provider_mode = os.getenv("AI_PROVIDER_MODE", "mock")
+
+    call_status = "VOICE_CALL_SIMULATED (Mock Mode)"
+    call_sid = None
+
+    if (
+        provider_mode != "mock"
+        and account_sid
+        and not account_sid.startswith("your_")
+        and auth_token
+        and not auth_token.startswith("your_")
+        and from_phone
+    ):
+        twiml = f"<Response><Say language='bn-IN'>{voice_script_bn}</Say></Response>"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(
+                    f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls.json",
+                    auth=(account_sid, auth_token),
+                    data={"To": to_phone, "From": from_phone, "Twiml": twiml}
+                )
+                if res.status_code in [200, 201]:
+                    call_status = "VOICE_CALL_DISPATCHED"
+                    call_sid = res.json().get("sid")
+                else:
+                    call_status = f"TWILIO_API_ERROR_{res.status_code}"
+        except Exception as e:
+            call_status = f"DISPATCH_ERROR: {str(e)}"
+
     return {
-        "dispatch_status": "VOICE_CALL_ACTIVE",
+        "dispatch_status": call_status,
+        "call_sid": call_sid,
         "target_dispatcher": facility.get("name"),
-        "dispatcher_phone": facility.get("phone", "999"),
+        "dispatcher_phone": to_phone,
         "twiml_bengali_script": voice_script_bn,
         "english_transcript": voice_script_en
     }

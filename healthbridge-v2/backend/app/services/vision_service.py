@@ -34,7 +34,7 @@ async def analyze_symptom_image(image_bytes: bytes, filename: str, prompt_hint: 
 
     # Live Meta Model API call for SAM 3.1 & Muse Image
     headers = {"Authorization": f"Bearer {os.getenv('LLM_API_KEY')}"}
-    base_url = os.getenv("LLM_BASE_URL", "https://api.dev.meta.ai/v1")
+    base_url = os.getenv("LLM_BASE_URL", "https://api.meta.ai/v1")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:

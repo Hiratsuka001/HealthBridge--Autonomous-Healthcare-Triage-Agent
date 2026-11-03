@@ -1,4 +1,5 @@
 import os
+import re
 from openai import AsyncOpenAI
 from app.schemas.triage import TriageEngineResponse
 from app.services.rag_service import retrieve_clinical_protocol
@@ -8,7 +9,7 @@ load_dotenv()
 
 client = AsyncOpenAI(
     api_key=os.getenv("LLM_API_KEY", "mock-key"),
-    base_url=os.getenv("LLM_BASE_URL", "https://api.dev.meta.ai/v1")
+    base_url=os.getenv("LLM_BASE_URL", "https://api.meta.ai/v1")
 )
 
 MODEL_NAME = os.getenv("LLM_MODEL", "muse-spark-1.3")
@@ -26,19 +27,41 @@ CRITICAL INSTRUCTIONS:
 3. Speak to the patient in the language they used last (Bengali or English).
 """
 
+def _is_chest_negated(text: str) -> bool:
+    """Checks if chest symptoms are explicitly ruled out (not just containing the word 'not')."""
+    t = text.lower()
+    if re.search(r"\b(?:no|without|denies|zero)\s+(?:acute\s+|severe\s+|known\s+)?(?:chest\s+)?(?:pain|pressure|discomfort)\b", t):
+        return True
+    if re.search(r"\bno\s+(?:pain|discomfort|pressure)\s+(?:in|around)\s+(?:the\s+|my\s+)?chest\b", t):
+        return True
+    return any(neg in t for neg in ["no chest", "ব্যথা নেই", "কোনো সমস্যা নেই", "কোন সমস্যা নেই", "বুকে ব্যথা নেই", "বুকে কোনো চাপ নেই"])
+
 def _fallback_triage_logic(conversation_history: list) -> TriageEngineResponse:
     """
     Deterministic fallback pathway used when AI_PROVIDER_MODE='mock'
     or if the API returns a 401/402/429 quota exhaustion error.
+    shortcut: regex-based fallback triage for offline/failover; full LLM structured output used when online
     """
     user_msgs = [m.get("content", "").lower() for m in conversation_history if m.get("role") == "user"]
     last_user_msg = user_msgs[-1] if user_msgs else ""
     all_user_text = " ".join(user_msgs)
 
-    is_negated = any(neg in last_user_msg for neg in ["no chest", "নেই", "ব্যথা নেই", "কোনো সমস্যা নেই", "not "])
-    has_red_flags = any(w in all_user_text for w in ["pressure", "চাপ", "slurred", "জড়িয়ে", "অবশ", "faint", "bleeding", "প্রচণ্ড", "কষ্ট"]) or (
-        any(w in all_user_text for w in ["chest", "বুকে"]) and not is_negated
+    # Scoped negation: avoids false negatives on phrases like "not feeling well, chest hurts"
+    is_negated = _is_chest_negated(last_user_msg)
+    chest_present = any(w in all_user_text for w in ["chest", "বুকে", "হার্ট"])
+    has_cardiac_red_flag = chest_present and not is_negated
+
+    other_red_flags = any(
+        w in all_user_text
+        for w in [
+            "pressure", "চাপ", "slurred", "জড়িয়ে", "অবশ",
+            "faint", "bleeding", "প্রচণ্ড", "কষ্ট", "radiat",
+            "অজ্ঞান", "রক্তপাত", "breathless", "শ্বাসকষ্ট"
+        ]
     )
+
+    has_red_flags = has_cardiac_red_flag or other_red_flags
+
     if has_red_flags:
         return TriageEngineResponse(
             decision_flip_test={
