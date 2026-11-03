@@ -11,10 +11,30 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { messages = [], visual_context = "", vitals = null } = req.body || {};
-  const apiKey = process.env.LLM_API_KEY;
-  const baseUrl = process.env.LLM_BASE_URL || "https://api.meta.ai/v1";
+  const {
+    messages = [],
+    message = "",
+    history = [],
+    visual_context = "",
+    vitals = null
+  } = req.body || {};
+
+  const rawApiKey = process.env.LLM_API_KEY || "";
+  const apiKey = rawApiKey.replace(/^['"]|['"]$/g, "").trim();
+  const baseUrl = (process.env.LLM_BASE_URL || "https://api.meta.ai/v1").trim();
   const model = process.env.LLM_MODEL || "muse-spark-1.3";
+
+  // Build clean normalized messages array
+  let normalizedMessages = Array.isArray(messages) && messages.length > 0
+    ? [...messages]
+    : [
+        ...(Array.isArray(history) ? history : []),
+        ...(message ? [{ role: "user", content: String(message) }] : [])
+      ];
+
+  if (normalizedMessages.length === 0) {
+    normalizedMessages = [{ role: "user", content: "Hello" }];
+  }
 
   if (!apiKey || apiKey === "mock-key" || apiKey === "your_meta_hackathon_key_here") {
     return res.status(200).json({
@@ -46,8 +66,9 @@ CRITICAL INSTRUCTIONS:
   "next_question": "Your single next clinical question in patient's language, or null if triage is complete",
   "current_severity": "Mild" | "Moderate" | "Severe",
   "is_triage_complete": false | true,
+  "clinical_rationale": "Comprehensive explanation of clinical reasoning, ruling out life threats according to WHO emergency triage standards",
   "decision_flip_test": {
-    "missing_critical_info": "Critical unasked variable",
+    "missing_critical_info": "Specific unasked information that could flip urgency to Severe",
     "has_verified_info": false,
     "should_escalate": true
   }
@@ -55,7 +76,7 @@ CRITICAL INSTRUCTIONS:
 
     const apiMessages = [
       { role: "system", content: systemPrompt },
-      ...messages.map((m) => ({ role: m.role, content: m.content }))
+      ...normalizedMessages.map((m) => ({ role: m.role, content: m.content }))
     ];
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -100,6 +121,14 @@ CRITICAL INSTRUCTIONS:
 
     if (!parsed.current_severity) {
       parsed.current_severity = "Moderate";
+    }
+
+    if (!parsed.clinical_rationale) {
+      parsed.clinical_rationale = parsed.rationale || parsed.explanation || (
+        isBn
+          ? "জরুরি প্রটোকল অনুসারে জীবননাশী লক্ষণসমূহ যাচাই করা হচ্ছে।"
+          : "WHO emergency protocol evaluation active. Ruling out acute red flags before de-escalating care."
+      );
     }
 
     // Extract next_question robustly

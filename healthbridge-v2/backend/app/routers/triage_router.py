@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Request
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 from app.services.llm_engine import process_triage_turn
@@ -68,13 +68,33 @@ async def triage_vision(
 
 @router.post("/scan-medicine")
 async def scan_medicine_endpoint(
-    file: UploadFile = File(...),
+    request: Request,
+    file: Optional[UploadFile] = File(None),
     symptoms: Optional[str] = Form(""),
     news2_score: Optional[int] = Form(0),
     selected_region: Optional[str] = Form(""),
     vitals_json: Optional[str] = Form("")
 ):
     import json
+    import base64
+    content_type = request.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        b64 = body.get("image_base64", "")
+        image_bytes = base64.b64decode(b64) if b64 else b""
+        filename = body.get("filename", "upload.jpg")
+        clinical_context = {
+            "symptoms": body.get("symptoms", "") or "",
+            "news2_score": body.get("news2_score", 0) or 0,
+            "selected_region": body.get("selected_region", "") or "",
+            "vitals": body.get("vitals", {}) or {}
+        }
+        return await scan_medicine_strip(image_bytes, filename, clinical_context)
+
     vitals_dict = {}
     if vitals_json:
         try:
@@ -89,6 +109,7 @@ async def scan_medicine_endpoint(
         "vitals": vitals_dict
     }
 
-    image_bytes = await file.read()
-    report = await scan_medicine_strip(image_bytes, file.filename, clinical_context)
+    image_bytes = (await file.read()) if file else b""
+    fname = file.filename if file else "upload.jpg"
+    report = await scan_medicine_strip(image_bytes, fname, clinical_context)
     return report

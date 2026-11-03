@@ -60,7 +60,8 @@ async def scan_medicine_strip(
     the patient's triaged symptoms.
     """
     context = clinical_context or {}
-    gemini_key = os.getenv("GEMINI_API_KEY")
+    raw_key = os.getenv("GEMINI_API_KEY", "")
+    gemini_key = raw_key.strip().strip("'\"")
 
     if not gemini_key or gemini_key == "mock-key":
         return _build_mock_scan(context)
@@ -110,7 +111,7 @@ Return ONLY valid JSON.
 """
 
     # Priority model list to ensure fast turnaround
-    candidate_models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-3.8-flash"]
+    candidate_models = ["gemini-3-flash-preview", "gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"]
 
     async with httpx.AsyncClient(timeout=25.0) as client:
         for model in candidate_models:

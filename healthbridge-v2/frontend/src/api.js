@@ -212,16 +212,33 @@ export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash,
 
 export async function scanMedicineImage(file, context = {}) {
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (context.symptoms) formData.append("symptoms", context.symptoms);
-    if (context.news2Score !== undefined) formData.append("news2_score", context.news2Score);
-    if (context.selectedRegion) formData.append("selected_region", context.selectedRegion);
-    if (context.vitals) formData.append("vitals_json", JSON.stringify(context.vitals));
+    let imageBase64 = "";
+    if (file instanceof Blob || file instanceof File) {
+      imageBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result || "";
+          resolve(res.includes(",") ? res.split(",")[1] : res);
+        };
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const payload = {
+      image_base64: imageBase64,
+      mime_type: file?.type || "image/jpeg",
+      filename: file?.name || "upload.jpg",
+      symptoms: context.symptoms || "",
+      news2_score: context.news2Score ?? 0,
+      selected_region: context.selectedRegion || "",
+      vitals: context.vitals || null,
+    };
 
     const res = await fetch(`${API_BASE}/triage/scan-medicine`, {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
