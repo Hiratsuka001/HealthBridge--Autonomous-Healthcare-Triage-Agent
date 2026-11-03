@@ -1,6 +1,8 @@
+import { calculateNews2, calculateEsi } from "./utils/clinicalCalculators";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
-function fallbackTriage(messages) {
+function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
   const lastMsg = (messages[messages.length - 1]?.content || "").toLowerCase();
   const isNegated = ["no chest", "নেই", "ব্যথা নেই", "কোনো সমস্যা নেই", "not "].some((w) => lastMsg.includes(w));
   const hasRedFlags =
@@ -8,35 +10,51 @@ function fallbackTriage(messages) {
       lastMsg.includes(w)
     ) || (["chest", "বুকে"].some((w) => lastMsg.includes(w)) && !isNegated);
 
-  if (hasRedFlags) {
+  const news = vitals ? calculateNews2(vitals) : { score: 0, riskLevel: "Low", clinicalUrgency: "Routine" };
+  const isCritVitals = news.score >= 7 || (vitals?.spo2 && vitals.spo2 <= 91);
+  const shouldEscalate = hasRedFlags || isCritVitals;
+
+  const esi = calculateEsi({
+    news2Score: news.score,
+    ...(vitals || {}),
+    hasHighRiskSymptom: shouldEscalate
+  });
+
+  if (shouldEscalate) {
     return {
       decision_flip_test: {
-        missing_critical_info: "None - Critical cardiac/neurological warning sign confirmed.",
+        missing_critical_info: "None - Critical cardiac/neurological or vital signs emergency confirmed.",
         has_verified_info: true,
         should_escalate: true,
       },
       current_severity: "Severe",
       next_question: null,
       is_triage_complete: true,
+      news2_score: news.score,
+      esi_level: esi.level,
+      clinical_rationale: `Escalated: High urgency red flags confirmed. ESI-${esi.level} (${esi.target}). NEWS2: ${news.score}.`
     };
   }
 
   if (messages.length >= 3) {
     return {
       decision_flip_test: {
-        missing_critical_info: "Red flags ruled out (no chest pain, no stroke signs).",
+        missing_critical_info: "Red flags ruled out (no chest pain, no stroke signs, vitals stable).",
         has_verified_info: true,
         should_escalate: false,
       },
       current_severity: "Mild",
       next_question: null,
       is_triage_complete: true,
+      news2_score: news.score,
+      esi_level: esi.level,
+      clinical_rationale: `Routine presentation: Red flags absent, vitals normal. ESI-${esi.level}.`
     };
   }
 
   return {
     decision_flip_test: {
-      missing_critical_info: "Presence of chest pain, shortness of breath, or one-sided weakness/slurred speech",
+      missing_critical_info: "Presence of chest pain, shortness of breath, active bleeding, or slurred speech",
       has_verified_info: false,
       should_escalate: true,
     },
@@ -44,13 +62,18 @@ function fallbackTriage(messages) {
     next_question:
       "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)",
     is_triage_complete: false,
+    news2_score: news.score,
+    esi_level: esi.level,
+    clinical_rationale: `Triage evaluation ongoing. Checking critical flip conditions. Current ESI-${esi.level}.`
   };
 }
 
-function fallbackDispatch(severity, decisionFlipSummary) {
+function fallbackDispatch(severity, decisionFlipSummary, vitals = null, esiLevel = null) {
   const isSevere = (severity || "").toLowerCase() === "severe";
-  const qrData = encodeURIComponent(`HealthBridge SOAP: ${severity} | ${decisionFlipSummary}`);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+  const esiText = esiLevel ? `ESI Level ${esiLevel}` : (isSevere ? "ESI Level 2" : "ESI Level 4");
+  const vitalsText = vitals ? `HR:${vitals.heartRate || 75} BP:${vitals.systolicBp || 120}/${vitals.diastolicBp || 80} SpO2:${vitals.spo2 || 98}%` : "Vitals Stable";
+  const qrData = encodeURIComponent(`HealthBridge SOAP: ${severity} | ${esiText} | ${vitalsText} | ${decisionFlipSummary}`);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${qrData}`;
 
   return {
     severity,
@@ -86,6 +109,11 @@ function fallbackDispatch(severity, decisionFlipSummary) {
     er_handoff_packet: {
       qr_code_data_url: qrUrl,
       soap_note: {
+        protocol: "HealthBridge Zero-Wait ER Pre-Arrival Intake",
+        triage_severity: severity.toUpperCase(),
+        esi_level: esiText,
+        objective: vitalsText,
+        assessment: decisionFlipSummary,
         plan: isSevere ? "Immediate ER Triage Bypass - Direct to Acute Bay" : "Outpatient / Local Clinic Review",
       },
     },
@@ -120,18 +148,23 @@ function fallbackVision() {
   };
 }
 
-export async function sendTriageMessage(messages, visualContext = "") {
+export async function sendTriageMessage(messages, visualContext = "", vitals = null, selectedRegion = null) {
   try {
     const res = await fetch(`${API_BASE}/triage/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, visual_context: visualContext }),
+      body: JSON.stringify({
+        messages,
+        visual_context: visualContext,
+        vitals,
+        selected_region: selectedRegion
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
     console.warn("Backend unavailable, using client fallback:", err.message);
-    return fallbackTriage(messages);
+    return fallbackTriage(messages, vitals, selectedRegion);
   }
 }
 
@@ -153,7 +186,7 @@ export async function uploadSymptomImage(file, symptomHint = "wound, burn, rash,
   }
 }
 
-export async function executeDispatch(messages, severity, decisionFlipSummary, coords = null) {
+export async function executeDispatch(messages, severity, decisionFlipSummary, coords = null, vitals = null, esiLevel = null) {
   try {
     const res = await fetch(`${API_BASE}/dispatch/execute`, {
       method: "POST",
@@ -164,12 +197,14 @@ export async function executeDispatch(messages, severity, decisionFlipSummary, c
         decision_flip_summary: decisionFlipSummary,
         lat: coords?.lat ?? 23.7771,
         lng: coords?.lng ?? 90.3994,
+        vitals,
+        esi_level: esiLevel
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
     console.warn("Dispatch backend unavailable, using client fallback:", err.message);
-    return fallbackDispatch(severity, decisionFlipSummary);
+    return fallbackDispatch(severity, decisionFlipSummary, vitals, esiLevel);
   }
 }

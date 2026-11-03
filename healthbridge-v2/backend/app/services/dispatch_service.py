@@ -4,6 +4,7 @@ import json
 import base64
 import qrcode
 import httpx
+from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -89,7 +90,13 @@ async def find_nearby_facilities(severity: str, lat: float = 23.7771, lng: float
     except Exception:
         return _fallback_facilities(severity)
 
-def generate_soap_qr_packet(conversation_history: list, severity: str, decision_flip_info: str) -> dict:
+def generate_soap_qr_packet(
+    conversation_history: list,
+    severity: str,
+    decision_flip_info: str,
+    vitals: Optional[Dict[str, Any]] = None,
+    esi_level: Optional[int] = None
+) -> dict:
     """
     Compiles the Bengali/English interview into a standardized English Clinical SOAP Note
     and encodes it into a scan-ready Base64 QR code for instant ER nurse intake.
@@ -97,16 +104,25 @@ def generate_soap_qr_packet(conversation_history: list, severity: str, decision_
     user_statements = [m["content"] for m in conversation_history if m.get("role") == "user"]
     symptom_summary = " | ".join(user_statements) if user_statements else "Acute symptom presentation"
 
+    assigned_esi = f"ESI Level {esi_level}" if esi_level else ("ESI Level 2 (Emergent)" if severity.upper() == "SEVERE" else "ESI Level 4 (Routine)")
+
+    vitals_objective = (
+        f"HR {vitals.get('heart_rate', 75)} bpm | BP {vitals.get('systolic_bp', 120)}/{vitals.get('diastolic_bp', 80)} mmHg | SpO2 {vitals.get('spo2', 98)}% | Temp {vitals.get('temperature', 37.0)}°C | AVPU: {vitals.get('avpu', 'Alert')} | NEWS2 Score: {vitals.get('news2_score', 0)}"
+        if vitals else
+        "Bilingual AI Triage completed. Visual/Red-flag check executed."
+    )
+
     soap_note = {
         "protocol": "HealthBridge Zero-Wait ER Pre-Arrival Intake",
         "triage_severity": severity.upper(),
+        "esi_level": assigned_esi,
         "subjective": f"Patient reported: {symptom_summary}",
-        "objective": "Bilingual AI Triage completed. Visual/Red-flag check executed.",
+        "objective": vitals_objective,
         "assessment": f"Decision Flip Trigger: {decision_flip_info}",
         "plan": (
-            "Immediate ER Triage Bypass - Direct to Acute Bay"
-            if severity == "Severe"
-            else "Outpatient / Local Clinic Review"
+            "Immediate ER Triage Bypass - Direct to Resuscitation/Acute Bay"
+            if severity.upper() == "SEVERE"
+            else "Outpatient / Primary Clinic Review"
         )
     }
 

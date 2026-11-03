@@ -1,19 +1,60 @@
 from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from app.services.llm_engine import process_triage_turn
 from app.services.vision_service import analyze_symptom_image
+from app.services.clinical_calculator import calculate_news2, calculate_esi
+from app.schemas.triage import VitalsInput
 
 router = APIRouter(prefix="/api/triage", tags=["Triage & Vision"])
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, str]]
     visual_context: Optional[str] = ""
+    vitals: Optional[Dict[str, Any]] = None
+    selected_region: Optional[str] = None
 
 @router.post("/chat")
 async def triage_chat(req: ChatRequest):
-    result = await process_triage_turn(req.messages, req.visual_context)
+    result = await process_triage_turn(
+        conversation_history=req.messages,
+        visual_context=req.visual_context or "",
+        vitals=req.vitals,
+        selected_region=req.selected_region
+    )
     return result
+
+@router.post("/calculate-vitals")
+async def calculate_vitals_endpoint(vitals: VitalsInput):
+    news_res = calculate_news2(
+        respiratory_rate=vitals.respiratory_rate if vitals.respiratory_rate is not None else 16,
+        spo2=vitals.spo2 if vitals.spo2 is not None else 98,
+        systolic_bp=vitals.systolic_bp if vitals.systolic_bp is not None else 120,
+        heart_rate=vitals.heart_rate if vitals.heart_rate is not None else 75,
+        temp_celsius=vitals.temperature if vitals.temperature is not None else 37.0,
+        avpu=vitals.avpu or "Alert",
+        on_supplemental_o2=bool(vitals.on_supplemental_o2)
+    )
+    esi = calculate_esi(
+        news2_score=news_res["score"],
+        avpu=vitals.avpu or "Alert",
+        spo2=vitals.spo2 if vitals.spo2 is not None else 98,
+        pain_level=vitals.pain_level if vitals.pain_level is not None else 0,
+        has_high_risk_symptom=bool(vitals.red_flags and len(vitals.red_flags) > 0)
+    )
+    esi_desc = {
+        1: "Immediate Resuscitation (Red Bay)",
+        2: "Emergent / High Risk (Direct Bedding)",
+        3: "Urgent (Acute Ward)",
+        4: "Less Urgent (Ambulatory Clinic)",
+        5: "Non-urgent (Local Pharmacy / Self-care)"
+    }
+    return {
+        "news2": news_res,
+        "esi_level": esi,
+        "esi_category": esi_desc.get(esi, "Urgent"),
+        "clinical_urgency": news_res["clinical_urgency"]
+    }
 
 @router.post("/vision")
 async def triage_vision(
@@ -23,4 +64,3 @@ async def triage_vision(
     image_bytes = await file.read()
     analysis = await analyze_symptom_image(image_bytes, file.filename, symptom_hint)
     return analysis
-

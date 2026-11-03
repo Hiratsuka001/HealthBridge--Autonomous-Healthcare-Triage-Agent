@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from app.services.dispatch_service import (
     find_nearby_facilities,
     generate_soap_qr_packet,
@@ -15,11 +15,19 @@ class DispatchRequest(BaseModel):
     decision_flip_summary: Optional[str] = "Critical warning sign evaluated"
     lat: Optional[float] = 23.7771
     lng: Optional[float] = 90.3994
+    vitals: Optional[Dict[str, Any]] = None
+    esi_level: Optional[int] = None
 
 @router.post("/execute")
 async def execute_dispatch_and_handoff(req: DispatchRequest):
     facilities = await find_nearby_facilities(req.severity, req.lat, req.lng)
-    qr_packet = generate_soap_qr_packet(req.messages, req.severity, req.decision_flip_summary)
+    qr_packet = generate_soap_qr_packet(
+        req.messages,
+        req.severity,
+        req.decision_flip_summary,
+        req.vitals,
+        req.esi_level
+    )
 
     ambulance_dispatch = None
     if req.severity.lower() == "severe" and facilities:
