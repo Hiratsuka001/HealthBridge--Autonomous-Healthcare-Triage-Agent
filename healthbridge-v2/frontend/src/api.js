@@ -36,10 +36,10 @@ function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
     };
   }
 
-  if (messages.length >= 3) {
+  if ((isNegated && messages.length >= 3) || messages.length >= 7) {
     return {
       decision_flip_test: {
-        missing_critical_info: "Red flags ruled out (no chest pain, no stroke signs, vitals stable).",
+        missing_critical_info: "Red flags ruled out (no acute cardiac or neurological emergency, vitals stable).",
         has_verified_info: true,
         should_escalate: false,
       },
@@ -58,6 +58,7 @@ function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
   ) && lastMsg.split(" ").length <= 4;
   const isTrauma = ["burn", "wound", "পুড়ে", "ক্ষত", "কাটা"].some((w) => allUserText.includes(w));
   const isDizzy = ["dizzy", "মাথা", "ঘুর", "দুর্বল", "faint"].some((w) => allUserText.includes(w));
+  const isSleep = ["sleep", "ঘুম", "insomnia", "tired", "fatigue", "exhaust"].some((w) => allUserText.includes(w));
 
   let nextQ = "আপনার কি বুকে ব্যথা, শ্বাসকষ্ট, প্রচণ্ড পেটব্যথা বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pain, shortness of breath, severe abdominal pain, or difficulty speaking?)";
   let missingInfo = "Presence of critical red flags (cardiac, respiratory, or neurological deficits)";
@@ -68,6 +69,9 @@ function fallbackTriage(messages, vitals = null, _selectedRegion = null) {
   } else if (isTrauma) {
     nextQ = "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)";
     missingInfo = "Active arterial hemorrhage or visible deep fascial exposure";
+  } else if (isSleep) {
+    nextQ = "ঘুমের সমস্যা কতদিন ধরে হচ্ছে? অতিরিক্ত ক্লান্তির পাশাপাশি মাথা ঘোরা, বুক ধড়ফড় বা তীব্র অবসাদ অনুভব করছেন কি? (How long have you had this sleep deprivation? Are you experiencing palpitations, lightheadedness, or severe exhaustion?)";
+    missingInfo = "Duration of sleep deprivation and presence of acute exhaustion red flags";
   } else if (isDizzy) {
     nextQ = "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)";
     missingInfo = "Presence of chest pain, shortness of breath, active bleeding, or slurred speech";

@@ -111,7 +111,7 @@ def _fallback_triage_logic(
             esi_level=esi,
             clinical_rationale=f"Escalated: Red flags or severe vitals instability confirmed. ESI Level {esi} assigned. NEWS2: {news2_score}."
         )
-    elif len(conversation_history) >= 3:
+    elif (is_negated and len(conversation_history) >= 3) or len(conversation_history) >= 7:
         esi = calculate_esi(
             news2_score=news2_score,
             avpu=v_dict.get("avpu", "Alert"),
@@ -121,7 +121,7 @@ def _fallback_triage_logic(
         )
         return TriageEngineResponse(
             decision_flip_test={
-                "missing_critical_info": "Red flags ruled out (no chest pain, no stroke signs).",
+                "missing_critical_info": "Red flags ruled out (no acute cardiac or neurological emergency, vitals stable).",
                 "has_verified_info": True,
                 "should_escalate": False
             },
@@ -140,6 +140,7 @@ def _fallback_triage_logic(
 
         is_trauma = any(w in all_user_text for w in ["burn", "wound", "পুড়ে", "ক্ষত", "কাটা"])
         is_dizzy = any(w in all_user_text for w in ["dizzy", "মাথা", "ঘুর", "দুর্বল", "faint"])
+        is_sleep = any(w in all_user_text for w in ["sleep", "ঘুম", "insomnia", "tired", "fatigue", "exhaust"])
 
         if is_greeting:
             question = "হ্যালো! আমি হেলথব্রিজ জরুরি ট্রায়াজ সহকারী। আপনার বা রোগীর কী কী শারীরিক সমস্যা বা লক্ষণ দেখা দিচ্ছে অনুগ্রহ করে বিস্তারিত বলুন। (Hello! I am HealthBridge triage assistant. What symptoms or medical emergency are you or the patient experiencing?)"
@@ -147,6 +148,9 @@ def _fallback_triage_logic(
         elif is_trauma:
             question = "ক্ষতস্থান থেকে কি অবিরাম রক্তক্ষরণ হচ্ছে বা চামড়ার গভীর অংশ দেখা যাচ্ছে? (Is there continuous bleeding or visible deep tissue?)"
             missing_info = "Presence of active arterial bleeding or deep fascial exposure"
+        elif is_sleep:
+            question = "ঘুমের সমস্যা কতদিন ধরে হচ্ছে? অতিরিক্ত ক্লান্তির পাশাপাশি মাথা ঘোরা, বুক ধড়ফড় বা তীব্র অবসাদ অনুভব করছেন কি? (How long have you had this sleep deprivation? Are you experiencing palpitations, lightheadedness, or severe exhaustion?)"
+            missing_info = "Duration of sleep deprivation and presence of acute exhaustion red flags"
         elif is_dizzy:
             question = "আপনার কি মাথা ঘোরার পাশাপাশি বুকে চাপ বা কথা বলতে কোনো সমস্যা হচ্ছে? (Are you experiencing chest pressure or difficulty speaking alongside the dizziness?)"
             missing_info = "Presence of chest pain, shortness of breath, active bleeding, or slurred speech"

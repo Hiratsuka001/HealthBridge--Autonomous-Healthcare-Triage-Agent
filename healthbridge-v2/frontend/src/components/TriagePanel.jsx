@@ -950,22 +950,22 @@ export default function TriagePanel({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !triageState?.is_triage_complete && handleSend()}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder={
                 triageState?.is_triage_complete
                   ? isBn
-                    ? "ট্রায়াজ সম্পন্ন (পুনরায় শুরু করতে রিসেট চাপুন)"
-                    : "Triage complete (Reset to start over)"
+                    ? "আরও কিছু জানতে চান বা নতুন লক্ষণ যোগ করতে চান? লিখুন..."
+                    : "Ask a follow-up or update symptoms..."
                   : isBn
                   ? "উপসর্গ বাংলায় বা ইংরেজিতে লিখুন..."
                   : "Describe symptoms in English or বাংলা..."
               }
-              disabled={loading || triageState?.is_triage_complete}
+              disabled={loading}
               className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-600 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
             />
             <button
               onClick={() => handleSend()}
-              disabled={loading || triageState?.is_triage_complete}
+              disabled={loading}
               className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3.5 py-2 rounded-xl flex items-center gap-1 text-xs font-bold transition shadow-xs"
             >
               <Send className="w-3.5 h-3.5" />

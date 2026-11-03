@@ -116,14 +116,15 @@ export default function DispatchMap({
     });
     mapInstanceRef.current = map;
 
-    // Geoapify Dark Matter Tile Layer with fallback to CartoDB Dark Matter
+    // Geoapify Dark Matter Tile Layer with fallback to Dark OpenStreetMap (never requires API key)
     const tileUrl = GEOAPIFY_KEY
       ? `https://maps.geoapify.com/v1/tile/dark-matter-purple-roads/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_KEY}`
-      : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+      : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
     L.tileLayer(tileUrl, {
       maxZoom: 19,
-      subdomains: "abcd",
+      subdomains: GEOAPIFY_KEY ? "abcd" : "abc",
+      className: GEOAPIFY_KEY ? "" : "dark-osm-tiles",
     }).addTo(map);
 
     // 1. Patient Emergency Location Marker (Pulsing Radar Pin)
