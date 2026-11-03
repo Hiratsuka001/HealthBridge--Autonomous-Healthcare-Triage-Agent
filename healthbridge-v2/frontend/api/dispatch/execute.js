@@ -1,3 +1,5 @@
+import { handleCors, checkRateLimit } from "../_cors.js";
+
 const DHAKA_LANDMARKS = [
   { name: "Rampura / Hatirjheel Link Road", lat: 23.7662, lng: 90.4181 },
   { name: "Mohakhali / Wireless Gate", lat: 23.7780, lng: 90.4005 },
@@ -41,13 +43,8 @@ function calcFacStats(pLat, pLng, fLat, fLng) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (handleCors(req, res, "GET, POST, OPTIONS", "Content-Type")) return;
+  if (!checkRateLimit(req, res)) return;
 
   const {
     messages = [],

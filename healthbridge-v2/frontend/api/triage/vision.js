@@ -1,14 +1,16 @@
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import { handleCors, checkRateLimit, validateImagePayload } from "../_cors.js";
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+export default async function handler(req, res) {
+  if (handleCors(req, res, "GET, POST, OPTIONS", "Content-Type")) return;
+  if (!checkRateLimit(req, res)) return;
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const contentLength = parseInt(req.headers?.["content-length"] || "0", 10);
+  if (contentLength > 6 * 1024 * 1024) {
+    return res.status(413).json({ error: "Payload too large. Maximum size is 6 MB." });
   }
 
   let imageBase64 = "";
@@ -47,6 +49,11 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.warn("[Vision] Body parse warning:", err.message);
+  }
+
+  const validation = validateImagePayload(imageBase64, req);
+  if (!validation.valid) {
+    return res.status(validation.status).json({ error: validation.error });
   }
 
   const fallbackData = {

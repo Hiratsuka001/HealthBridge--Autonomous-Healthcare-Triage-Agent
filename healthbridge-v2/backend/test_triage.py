@@ -168,6 +168,22 @@ class TestHealthBridgeTriage(unittest.TestCase):
         self.assertEqual(fever_scan.get("contraindication_severity"), "CRITICAL")
         self.assertEqual(fever_scan.get("brand_name"), "Ecosprin 75")
 
+    def test_cors_origin_allowlist(self):
+        """Verifies allowed origins are echoed in Access-Control-Allow-Origin, and unknown origins are not."""
+        from fastapi.testclient import TestClient
+        from app.main import app
+        client = TestClient(app)
+
+        # Allowed origin: should be echoed back
+        res_allowed = client.get("/health", headers={"Origin": "http://localhost:5173"})
+        self.assertEqual(res_allowed.status_code, 200)
+        self.assertEqual(res_allowed.headers.get("access-control-allow-origin"), "http://localhost:5173")
+
+        # Unknown origin: should NOT be echoed back
+        res_unknown = client.get("/health", headers={"Origin": "http://untrusted-external-site.com"})
+        self.assertEqual(res_unknown.status_code, 200)
+        self.assertIsNone(res_unknown.headers.get("access-control-allow-origin"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ import json
 import base64
 import qrcode
 import httpx
+from xml.sax.saxutils import escape as xml_escape
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
@@ -230,7 +231,8 @@ async def trigger_ambulance_voice_dispatch(facility: dict, soap_note: dict, lat:
         and not auth_token.startswith("your_")
         and from_phone
     ):
-        twiml = f"<Response><Say language='bn-IN'>{voice_script_bn}</Say></Response>"
+        escaped_script_bn = xml_escape(voice_script_bn)
+        twiml = f"<Response><Say language='bn-IN'>{escaped_script_bn}</Say></Response>"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.post(
