@@ -100,7 +100,8 @@ export default async function handler(req, res) {
 
   function getFallback() {
     const combined = (symptoms + " " + selectedRegion).toLowerCase();
-    if (["fever", "dengue", "bleed", "rash", "headache", "chest", "জ্বর"].some((k) => combined.includes(k))) {
+    // Only flag the aspirin contraindication for fever / dengue / bleeding / rash keywords
+    if (["fever", "dengue", "bleed", "rash", "জ্বর", "রক্তপাত"].some((k) => combined.includes(k))) {
       return fallbackMocks[0];
     }
     return fallbackMocks[1];

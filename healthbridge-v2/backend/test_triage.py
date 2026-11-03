@@ -149,6 +149,25 @@ class TestHealthBridgeTriage(unittest.TestCase):
         self.assertEqual(report.get("contraindication_severity"), "CRITICAL")
         self.assertIn("bengali_patient_instruction", report)
 
+    def test_mock_medicine_scanner_chest_vs_fever(self):
+        """Verifies mock scan does NOT flag aspirin as critical for chest pain, but flags for fever."""
+        from app.services.medicine_scanner_service import _build_mock_scan
+        # Chest pain context: Aspirin is first-line for suspected MI, must NOT be critical contraindication
+        chest_scan = _build_mock_scan({"symptoms": "severe acute chest pain radiating to left arm", "selected_region": "chest"})
+        self.assertFalse(chest_scan.get("is_contraindicated", False))
+        self.assertEqual(chest_scan.get("contraindication_severity"), "SAFE")
+        self.assertNotEqual(chest_scan.get("brand_name"), "Ecosprin 75")
+
+        # Headache context alone: must NOT trigger critical aspirin contraindication
+        headache_scan = _build_mock_scan({"symptoms": "mild tension headache", "selected_region": "head"})
+        self.assertFalse(headache_scan.get("is_contraindicated", False))
+
+        # Fever context: Aspirin is contraindicated due to dengue/bleeding risk
+        fever_scan = _build_mock_scan({"symptoms": "high fever for 3 days and rash", "selected_region": "head"})
+        self.assertTrue(fever_scan.get("is_contraindicated", True))
+        self.assertEqual(fever_scan.get("contraindication_severity"), "CRITICAL")
+        self.assertEqual(fever_scan.get("brand_name"), "Ecosprin 75")
+
 
 if __name__ == "__main__":
     unittest.main()

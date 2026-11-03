@@ -44,8 +44,8 @@ def _build_mock_scan(clinical_context: Dict[str, Any]) -> Dict[str, Any]:
     symptoms = str(clinical_context.get("symptoms", "")).lower()
     selected_region = str(clinical_context.get("selected_region", "")).lower()
 
-    # If fever, bleeding, or abdomen - demonstrate critical Aspirin/Dengue contraindication
-    if any(k in symptoms or k in selected_region for k in ["fever", "dengue", "bleed", "rash", "headache", "chest"]):
+    # Only flag the aspirin contraindication for fever / dengue / bleeding / rash keywords
+    if any(k in symptoms or k in selected_region for k in ["fever", "dengue", "bleed", "rash", "জ্বর", "রক্তপাত"]):
         return FALLBACK_MEDICINES[0]
     return FALLBACK_MEDICINES[1]
 
